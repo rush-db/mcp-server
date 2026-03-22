@@ -50,7 +50,7 @@ export async function bulkCreateRecords({
     allFlat ?
       await db.records.createMany({ label, data, options: normalizedOptions }, transactionId)
     : await db.records.importJson({ label, data, options: normalizedOptions }, transactionId)
-  const ids = result.data.map((record: any) => record.id())
+  const ids = result.data.map((record: any) => record.id)
 
   return {
     message: `Successfully created ${ids.length} records with label '${label}'`,

@@ -14,22 +14,7 @@
 
 import { db } from '../util/db.js'
 
-export async function createRecord(params: {
-  label: string
-  data: Record<string, any>
-  transactionId?: string
-  options?: {
-    mergeStrategy?: 'append' | 'rewrite'
-    mergeBy?: string[]
-  }
-}) {
-  const { label, data, transactionId, options } = params
-
-  const result = await db.records.create({ label, data, options }, transactionId)
-
-  return {
-    success: true,
-    id: result.id(),
-    message: `Record created successfully with label '${label}'`
-  }
+export async function findEmbeddingIndexes() {
+  const result = await db.ai.indexes.find()
+  return result.data
 }
