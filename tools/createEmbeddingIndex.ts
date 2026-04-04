@@ -14,7 +14,13 @@
 
 import { db } from '../util/db.js'
 
-export async function createEmbeddingIndex(params: { label: string; propertyName: string }) {
+export async function createEmbeddingIndex(params: {
+  label: string
+  propertyName: string
+  sourceType?: 'managed' | 'external'
+  similarityFunction?: 'cosine' | 'euclidean'
+  dimensions?: number
+}) {
   const result = await db.ai.indexes.create(params)
   return result.data
 }
