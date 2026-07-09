@@ -12,22 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { db } from '../util/db.js'
-import type { DBRecordInstance } from '@rushdb/javascript-sdk'
+import { vectorSearch } from './vectorSearch.js'
+import type { SemanticSearchParams as VectorSearchParams } from '@rushdb/javascript-sdk'
 
-export async function semanticSearch(params: {
-  propertyName: string
-  query?: string
-  queryVector?: number[]
-  labels: string[]
-  sourceType?: 'managed' | 'external'
-  similarityFunction?: 'cosine' | 'euclidean'
-  dimensions?: number
-  where?: Record<string, unknown>
-  topK?: number
-  skip?: number
-  limit?: number
-}) {
-  const result = await db.ai.search(params)
-  return result.data.map((r: DBRecordInstance) => r.data)
+export async function semanticSearch(params: VectorSearchParams & { topK?: number }) {
+  return vectorSearch(params)
 }
