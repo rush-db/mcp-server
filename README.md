@@ -62,7 +62,7 @@ Place this in:
 
 **3. That's it.** The agent now has 13 tools for storing, querying, and traversing structured memory.
 
-> `RUSHDB_API_URL` is optional and defaults to `https://api.rushdb.com/api/v1`. It targets the RushDB Platform REST API.
+> `RUSHDB_API_URL` is optional and defaults to `https://api.rushdb.com/api/v1`, the RushDB Cloud API.
 
 ### Local standalone engine (no Cloud account)
 
@@ -94,8 +94,8 @@ ordering, projections and aggregations), relationships, labels and properties, b
 indexes and keyword search, and external vector indexes with vector search by a `queryVector` you supply.
 The RushDB Cloud tools are not listed and are refused if called: `smartSearch` (natural-language search),
 the relationship-pattern tools, and anything that needs managed embeddings (a text `query` for vector search,
-managed indexes). The MCP HTTP transport is unavailable in direct mode because its OAuth flow belongs to the
-platform; run the server through stdio on the same machine as the client.
+managed indexes). The MCP HTTP transport is unavailable in direct mode because its OAuth flow belongs to
+RushDB Cloud; run the server through stdio on the same machine as the client.
 
 ---
 

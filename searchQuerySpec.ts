@@ -228,8 +228,7 @@ $relation.hops — variable-length traversal (multihop over ONE pattern):
   • Keep max as small as the request allows; deep undirected traversal is expensive. Omit type
     only when the user genuinely means "any relationship"; keep direction when the schema gives one.
   • Always set hops.max (an integer as small as the request allows). Omitting max means
-    unbounded traversal, which is rejected on shared cloud connections and only accepted on
-    self-hosted / dedicated-database setups; hops.max is capped per deployment (default 10).
+    up to 10 hops (the engine default); RushDB Cloud also caps hops.max per deployment (default 10).
   • Endpoint aggregations apply per PATH: $count/$collect deduplicate, but $sum/$avg over a
     multihop alias count one row per path — prefer counting to summing across multihop endpoints.
   • One hop stays the default: never add hops for a plain related-record condition.

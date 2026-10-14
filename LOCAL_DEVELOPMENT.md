@@ -184,4 +184,4 @@ After editing `.mcp.json`, reconnect from the client (`/mcp` in Claude Code) or 
 | `RUSHDB_JWT_PRIVATE_KEY` / `RUSHDB_JWT_PRIVATE_KEY_BASE64` | RS256 private key used to sign OAuth JWTs                 | `-----BEGIN PRIVATE KEY-----...`   |
 | `RUSHDB_JWT_PUBLIC_KEY` / `RUSHDB_JWT_PUBLIC_KEY_BASE64`   | RS256 public key exposed in JWKS                          | `-----BEGIN PUBLIC KEY-----...`    |
 | `RUSHDB_JWT_KID`                                           | Key id included in JWT header and JWKS entries            | `rushdb-mcp-rs256`                 |
-| `RUSHDB_AES_256_ENCRYPTION_KEY`                            | HS256 fallback secret for local/self-hosted compatibility | `32SymbolStringForTokenEncryption` |
+| `RUSHDB_AES_256_ENCRYPTION_KEY`                            | HS256 fallback secret for local development                | `32SymbolStringForTokenEncryption` |
