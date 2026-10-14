@@ -27,6 +27,6 @@ export async function updateRecord(params: {
   return {
     success: true,
     message: `Record updated successfully`,
-    record: result.data
+    record: result?.data
   }
 }

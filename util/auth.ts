@@ -113,7 +113,7 @@ async function resolveJwtContext(jwt: string, projectId?: string): Promise<Reque
     })
     payload = result.payload
   } catch (_jwksError) {
-    // Fallback: HS256 with shared secret (MVP / self-hosted path)
+    // Fallback: HS256 with shared secret (local development)
     // The shared secret is the RUSHDB_AES_256_ENCRYPTION_KEY env var, same as platform/core
     const secret = process.env.RUSHDB_AES_256_ENCRYPTION_KEY
     if (!secret) {

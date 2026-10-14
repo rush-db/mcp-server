@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import type { Schema } from 'jsonschema'
+import { isCloudOnlyMethod } from '@rushdb/javascript-sdk'
 
 export type ToolName =
   | 'getSchemaMarkdown'
@@ -51,9 +52,83 @@ export type ToolName =
   | 'deleteEmbeddingIndex'
   | 'getEmbeddingIndexStats'
   | 'upsertEmbeddingVectors'
+  | 'listTextIndexes'
+  | 'createTextIndex'
+  | 'deleteTextIndex'
+  | 'textSearch'
   | 'vectorSearch'
   | 'semanticSearch'
   | 'smartSearch'
+
+/**
+ * The SDK methods each tool calls. A tool built on a RushDB Cloud method (the
+ * SDK's `CLOUD_ONLY_METHODS`) is not offered in direct mode; every other tool
+ * runs against a standalone engine through the SDK.
+ */
+export const TOOL_SDK_METHODS: Record<ToolName, string[]> = {
+  getSchemaMarkdown: ['ai.getSchemaMarkdown'],
+  getSchema: ['ai.getSchema'],
+  findLabels: ['labels.find'],
+  createRecord: ['records.create'],
+  updateRecord: ['records.update'],
+  deleteRecord: ['records.deleteById'],
+  findRecords: ['records.find'],
+  getRecord: ['records.findById'],
+  getRecordsByIds: ['records.findById'],
+  attachRelation: ['records.attach'],
+  detachRelation: ['records.detach'],
+  findRelationships: ['relationships.find'],
+  listRelationshipPatterns: ['relationships.patterns.list'],
+  analyzeRelationshipPatterns: ['relationships.patterns.analyze'],
+  approveRelationshipPattern: ['relationships.patterns.approve'],
+  ignoreRelationshipPattern: ['relationships.patterns.ignore'],
+  deleteRelationshipPattern: ['relationships.patterns.delete'],
+  bulkCreateRecords: ['records.createMany', 'records.importJson'],
+  bulkDeleteRecords: ['records.delete'],
+  exportRecords: ['records.export'],
+  helpAddToClient: [],
+  getQueryBuilderPrompt: [],
+  getSearchQuerySpec: [],
+  setRecord: ['records.set'],
+  findOneRecord: ['records.findOne'],
+  findUniqRecord: ['records.findUniq'],
+  deleteRecordById: ['records.deleteById'],
+  propertyValues: ['properties.values'],
+  findProperties: ['properties.find'],
+  findPropertyById: ['properties.findById'],
+  deleteProperty: ['properties.delete'],
+  findEmbeddingIndexes: ['ai.indexes.find'],
+  createEmbeddingIndex: ['ai.indexes.create'],
+  deleteEmbeddingIndex: ['ai.indexes.delete'],
+  getEmbeddingIndexStats: ['ai.indexes.stats'],
+  upsertEmbeddingVectors: ['ai.indexes.upsertVectors'],
+  listTextIndexes: ['textIndexes.find'],
+  createTextIndex: ['textIndexes.create'],
+  deleteTextIndex: ['textIndexes.delete'],
+  textSearch: ['records.textSearch'],
+  vectorSearch: ['records.vectorSearch'],
+  semanticSearch: ['records.vectorSearch'],
+  smartSearch: ['ai.search']
+}
+
+/** Tools offered in direct mode (against a standalone engine). */
+export const DIRECT_ENGINE_TOOL_NAMES = new Set<ToolName>(
+  (Object.keys(TOOL_SDK_METHODS) as ToolName[]).filter((tool) =>
+    TOOL_SDK_METHODS[tool].every((method) => !isCloudOnlyMethod(method))
+  )
+)
+
+/**
+ * In direct mode these tools work in one form only; the note is appended to
+ * their description there.
+ */
+export const DIRECT_MODE_NOTES: Partial<Record<ToolName, string>> = {
+  vectorSearch: ' Standalone engine: pass queryVector; a text query needs RushDB Cloud (managed embeddings).',
+  semanticSearch:
+    ' Standalone engine: pass queryVector; a text query needs RushDB Cloud (managed embeddings).',
+  createEmbeddingIndex:
+    ' Standalone engine: only external indexes (sourceType "external" with dimensions); managed indexes need RushDB Cloud.'
+}
 
 type SecurityScheme = { type: 'oauth2'; scopes: string[] } | { type: 'noauth' }
 
@@ -258,6 +333,20 @@ const RECORDS_OUTPUT_SCHEMA: Schema = {
     total: { type: 'number' }
   },
   required: ['data', 'total'],
+  additionalProperties: true
+}
+
+const TEXT_INDEX_SCHEMA: Schema = {
+  type: 'object',
+  properties: {
+    name: { type: 'string' },
+    label: { type: 'string' },
+    property: { type: 'string' },
+    consistency: { type: 'string', enum: ['eventual', 'immediate'] },
+    status: { type: 'string', enum: ['building', 'ready', 'dropping'] },
+    pending: { type: 'number' }
+  },
+  required: ['name', 'label', 'property', 'status'],
   additionalProperties: true
 }
 
@@ -486,6 +575,25 @@ const outputSchemas = {
     required: ['stats'],
     additionalProperties: false
   },
+  listTextIndexes: {
+    type: 'object',
+    properties: { indexes: { type: 'array', items: TEXT_INDEX_SCHEMA } },
+    required: ['indexes'],
+    additionalProperties: false
+  },
+  createTextIndex: {
+    type: 'object',
+    properties: { index: TEXT_INDEX_SCHEMA },
+    required: ['index'],
+    additionalProperties: false
+  },
+  deleteTextIndex: {
+    type: 'object',
+    properties: { deleted: { type: 'boolean' } },
+    required: ['deleted'],
+    additionalProperties: false
+  },
+  textSearch: RECORDS_OUTPUT_SCHEMA,
   vectorSearch: RECORDS_OUTPUT_SCHEMA,
   semanticSearch: RECORDS_OUTPUT_SCHEMA,
   smartSearch: {
@@ -832,7 +940,9 @@ export const tools: Tool[] = (
       annotations: DESTROY,
       securitySchemes: WRITE_SCHEMES,
       description:
-        'Remove a relationship between records. ' +
+        'Remove the relationships between a record and target records. ' +
+        'Without relationType it removes relationships of every type; with direction "bidirectional" it removes them both ways. ' +
+        'Not available inside a transaction. ' +
         'Use findRelationships to inspect existing relationships and confirm the correct type/direction before detaching.',
 
       inputSchema: {
@@ -848,16 +958,15 @@ export const tools: Tool[] = (
             items: { type: 'string' },
             description: 'IDs of multiple target records'
           },
-          relationType: { type: 'string', description: 'Type of the relationship to remove' },
+          relationType: {
+            type: 'string',
+            description: 'Type of the relationship to remove; omit to remove every type'
+          },
           direction: {
             type: 'string',
             enum: ['outgoing', 'incoming', 'bidirectional'],
             description: 'Direction of the relationship',
             default: 'outgoing'
-          },
-          transactionId: {
-            type: 'string',
-            description: 'Optional transaction ID for atomic relation removal'
           }
         },
         required: ['sourceId']
@@ -1281,6 +1390,11 @@ export const tools: Tool[] = (
       inputSchema: {
         type: 'object',
         properties: {
+          name: {
+            type: 'string',
+            description:
+              'Index name, unique within the project (1–64 of letters, digits, ".", "_", ":", "-"). Defaults to <label>.<property>.<model>.<dimensions>.<similarity>.'
+          },
           label: { type: 'string', description: 'Record label to scope the index to (e.g. "Book", "Task").' },
           propertyName: {
             type: 'string',
@@ -1352,7 +1466,7 @@ export const tools: Tool[] = (
       inputSchema: {
         type: 'object',
         properties: {
-          indexId: { type: 'string', description: 'ID of the embedding index to delete.' }
+          indexId: { type: 'string', description: 'ID or name of the embedding index to delete.' }
         },
         required: ['indexId']
       }
@@ -1362,12 +1476,15 @@ export const tools: Tool[] = (
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
-        'Return Neo4j-level statistics for an embedding index: totalRecords and indexedRecords. ' +
+        'Return indexing statistics for an embedding index: totalRecords and indexedRecords. ' +
         'Use this to monitor backfill progress after creating an index — when indexedRecords === totalRecords the index is fully ready.',
       inputSchema: {
         type: 'object',
         properties: {
-          indexId: { type: 'string', description: 'ID of the embedding index (from findEmbeddingIndexes).' }
+          indexId: {
+            type: 'string',
+            description: 'ID or name of the embedding index (from findEmbeddingIndexes).'
+          }
         },
         required: ['indexId']
       }
@@ -1380,13 +1497,20 @@ export const tools: Tool[] = (
         'Perform direct vector similarity search over records whose `propertyName` has been indexed with createEmbeddingIndex. ' +
         'For managed indexes: provide a free-text `query` — RushDB embeds it and returns the most similar records ranked by similarity (__score). ' +
         'For external indexes: provide a `queryVector` (pre-computed number[]) instead of query text. ' +
-        'Direct vector-index mode (fast, default): used when no `where` filter is supplied. ' +
-        'Prefilter mode (exact, slower): activated when a `where` filter is supplied — candidates are first narrowed then ranked. ' +
+        'A `where` filter narrows candidates before ranking. ' +
         'Requires an embedding index in "ready" status for the given label+propertyName.',
       inputSchema: {
         type: 'object',
         properties: {
-          propertyName: { type: 'string', description: 'Name of the indexed property to search against.' },
+          index: {
+            type: 'string',
+            description:
+              "Name of the embedding index to search (as listed by findEmbeddingIndexes or getSchema). When given, propertyName and labels default to the index's own."
+          },
+          propertyName: {
+            type: 'string',
+            description: 'Name of the indexed property to search against. Required unless index is given.'
+          },
           query: {
             type: 'string',
             description:
@@ -1424,15 +1548,144 @@ export const tools: Tool[] = (
             type: 'object',
             description: 'Optional filter applied before scoring (activates prefilter mode).'
           },
-          topK: {
+          mode: {
+            type: 'string',
+            enum: ['auto', 'exact', 'ann'],
+            description:
+              'How to rank candidates. "auto" (default): exact on small indexes, the ANN graph on large ones. "exact"/"ann" force a path ("ann" needs a cosine index).'
+          },
+          ef: {
+            type: 'number',
+            description: 'ANN gather breadth when the search runs on the ANN graph.'
+          },
+          scoreThreshold: {
             type: 'number',
             description:
-              'Max candidates to fetch from the vector index (default 20, direct vector-index mode only).'
+              'Keep only results scoring at least this much (scores depend on the embedding model).'
           },
-          limit: { type: 'number', description: 'Maximum number of results to return (default 20).' },
+          weight: {
+            type: 'number',
+            description:
+              "Hybrid only (with `text`): the vector leg's share of the fused score, ≥ 0 (default 1)."
+          },
+          prefetchLimit: {
+            type: 'number',
+            description:
+              'Hybrid only: hits the vector leg ranks before fusion, 1–10,000 (default 4 × (skip + limit)).'
+          },
+          fusion: {
+            type: 'string',
+            enum: ['rrf', 'dbsf'],
+            description:
+              'Hybrid only: "rrf" (default) fuses ranks; "dbsf" fuses each leg\'s scores normalized by its own distribution.'
+          },
+          rrfK: { type: 'number', description: 'Hybrid only: the RRF smoothing constant (default 60).' },
+          text: {
+            type: 'object',
+            description:
+              'Adds a keyword (BM25) leg, making it a hybrid search: both rankings run over the same filtered records and are fused. ' +
+              '`query` defaults to the semantic query; `index` defaults to the one ready text index of the first label (see listTextIndexes).',
+            properties: {
+              query: { type: 'string' },
+              index: { type: 'string' },
+              property: { type: 'string' },
+              allTerms: { type: 'boolean' },
+              phrase: { type: 'boolean' },
+              weight: {
+                type: 'number',
+                description: "The text leg's share of the fused score, ≥ 0 (default 1)."
+              },
+              prefetchLimit: {
+                type: 'number',
+                description: 'Hits the text leg ranks before fusion, 1–10,000.'
+              }
+            }
+          },
+          limit: { type: 'number', description: 'Maximum number of results to return (default 10).' },
           skip: { type: 'number', description: 'Number of results to skip for pagination (default 0).' }
         },
-        required: ['propertyName', 'labels']
+        required: []
+      }
+    },
+    {
+      name: 'listTextIndexes',
+      annotations: READ_ONLY,
+      securitySchemes: READ_SCHEMES,
+      description:
+        'List the project\'s keyword (BM25) text indexes: name, label, property ("*" = every string of the record), consistency and status.',
+      inputSchema: { type: 'object', properties: {}, required: [] }
+    },
+    {
+      name: 'createTextIndex',
+      annotations: WRITE,
+      securitySchemes: WRITE_SCHEMES,
+      description:
+        'Declare a keyword (BM25) text index over one property of a label, or every string of it (property "*"). ' +
+        'It is built online; once its status is "ready" (listTextIndexes), search it with textSearch or as the `text` leg of vectorSearch.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          label: { type: 'string', description: 'Record label to index.' },
+          property: {
+            type: 'string',
+            description: 'Property to index, or "*" for every string of the record.'
+          },
+          name: {
+            type: 'string',
+            description:
+              'Index name, unique within the project. Defaults to <label>.<property>.text ("all" for "*").'
+          },
+          consistency: {
+            type: 'string',
+            enum: ['eventual', 'immediate'],
+            description:
+              '"eventual" (default): searches see changes shortly after they commit. "immediate": every search sees every committed change.'
+          }
+        },
+        required: ['label', 'property']
+      }
+    },
+    {
+      name: 'deleteTextIndex',
+      annotations: DESTROY,
+      securitySchemes: WRITE_SCHEMES,
+      description: 'Drop a text index by name. Irreversible. Confirm with the user before calling.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Name of the text index (from listTextIndexes).' }
+        },
+        required: ['name']
+      }
+    },
+    {
+      name: 'textSearch',
+      annotations: READ_ONLY,
+      securitySchemes: READ_SCHEMES,
+      description:
+        'Keyword (BM25) search over a text index: records matching `query`, best first (__score), among those `labels` and `where` select. ' +
+        '`total` counts every match. Query syntax: words match any (or all with allTerms), "quoted phrases", -excluded, +required.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Keywords to match.' },
+          index: {
+            type: 'string',
+            description:
+              'Text index name (from listTextIndexes). Defaults to the one ready text index of the first label.'
+          },
+          property: {
+            type: 'string',
+            description: 'Narrows the choice of text index to one over this property.'
+          },
+          labels: { type: 'array', items: { type: 'string' }, description: 'Record labels to search.' },
+          where: { type: 'object', description: 'Filter applied before ranking.' },
+          allTerms: { type: 'boolean', description: 'Every keyword must match (AND) instead of any (OR).' },
+          phrase: { type: 'boolean', description: 'Match the keywords as one phrase.' },
+          limit: { type: 'number', description: 'Maximum number of results (default 10).' },
+          skip: { type: 'number', description: 'Results to skip for pagination (default 0).' }
+        },
+        required: ['query']
       }
     },
     {
@@ -1483,12 +1736,22 @@ export const tools: Tool[] = (
             type: 'object',
             description: 'Optional filter applied before scoring (activates prefilter mode).'
           },
-          topK: {
+          mode: {
+            type: 'string',
+            enum: ['auto', 'exact', 'ann'],
+            description:
+              'How to rank candidates. "auto" (default): exact on small indexes, the ANN graph on large ones. "exact"/"ann" force a path ("ann" needs a cosine index).'
+          },
+          ef: {
+            type: 'number',
+            description: 'ANN gather breadth when the search runs on the ANN graph.'
+          },
+          scoreThreshold: {
             type: 'number',
             description:
-              'Max candidates to fetch from the vector index (default 20, direct vector-index mode only).'
+              'Keep only results scoring at least this much (scores depend on the embedding model).'
           },
-          limit: { type: 'number', description: 'Maximum number of results to return (default 20).' },
+          limit: { type: 'number', description: 'Maximum number of results to return (default 10).' },
           skip: { type: 'number', description: 'Number of results to skip for pagination (default 0).' }
         },
         required: ['propertyName', 'labels']

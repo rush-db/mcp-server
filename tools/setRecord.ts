@@ -27,6 +27,6 @@ export async function setRecord(params: {
   return {
     success: true,
     message: `Record '${recordId}' set successfully with label '${label}'`,
-    record: result.data
+    record: result?.data
   }
 }

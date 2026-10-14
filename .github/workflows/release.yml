@@ -1,0 +1,150 @@
+name: Release and Deploy
+
+# Public repo: publishes @rushdb/mcp-server to npm via trusted publishing (OIDC)
+# and deploys the Cobalt `mcp` project from a multi-arch image.
+#
+# Runtime env for mcp lives in AWS SSM (/rushdb/prod/{ci,mcp}); the deploy job
+# assumes a read-only role via GitHub OIDC and fetches it at deploy time (no
+# static secrets in GitHub). See infra/docs/runbooks/secrets-ssm.md.
+#
+# npm trusted publishing one-time setup (npmjs.com -> Package -> Settings):
+#   Provider: GitHub Actions · Org: rush-db · Repo: mcp-server
+#   Workflow filename: release.yml · Allowed action: npm publish
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      force_mcp:
+        description: 'Rebuild and redeploy rushdb/mcp-server at its current version'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    outputs:
+      mcp_changed: ${{ steps.ver.outputs.changed }}
+      mcp_version: ${{ steps.ver.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.1.0
+
+      # Deliberately no `registry-url`: actions/setup-node writes an empty
+      # `_authToken` line that can shadow the OIDC exchange.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # Trusted publishing needs npm >= 11.5.1; Node 22 ships npm 10.x.
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@^11.5.1
+
+      - run: pnpm install --frozen-lockfile
+
+      # Ship when the package version changed in this push (or on a forced
+      # dispatch). The image tag is the version, so a version bump is what
+      # triggers a rebuild + redeploy.
+      - id: ver
+        name: Detect version
+        run: |
+          set -euo pipefail
+          v=$(node -p "require('./package.json').version")
+          prev=$(git show "${{ github.event.before }}:package.json" 2>/dev/null \
+                   | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.stdout.write(JSON.parse(s).version)}catch{}})') || true
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          if [ "${{ inputs.force_mcp }}" = "true" ] || [ "$v" != "$prev" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: changesets/action@v1
+        with:
+          version: pnpm changeset version
+          publish: pnpm release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  mcp-image:
+    name: MCP image
+    needs: release
+    if: needs.release.outputs.mcp_changed == 'true'
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      image: rushdb/mcp-server
+      slug: mcp-server
+      dockerfile: Dockerfile
+      version: ${{ needs.release.outputs.mcp_version }}
+    secrets: inherit
+
+  deploy-mcp:
+    name: Deploy MCP to Cobalt
+    needs: [release, mcp-image]
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - id: ssm
+        name: Load config from SSM
+        run: |
+          set -euo pipefail
+          get(){ aws ssm get-parameters-by-path --with-decryption --recursive \
+                   --path "$1" --query 'Parameters[].[Name,Value]' --output text; }
+          while IFS=$'\t' read -r n v; do echo "${n##*/}=$v" >> "$GITHUB_OUTPUT"; done < <(get /rushdb/prod/ci)
+          jq -Rn '[inputs|split("\t")|{key:(.[0]|split("/")|last),value:.[1]}]|from_entries' < <(get /rushdb/prod/mcp) > mcp-env.json
+
+      - uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ steps.ssm.outputs.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ steps.ssm.outputs.TS_OAUTH_CLIENT_SECRET }}
+          tags: ${{ steps.ssm.outputs.TS_OAUTH_TAGS }}
+
+      - name: Point the deploy endpoint at the tailnet
+        run: echo "${{ steps.ssm.outputs.DEPLOY_HOSTS_ENTRY }}" | sudo tee -a /etc/hosts >/dev/null
+
+      - name: Sync runtime env to Cobalt
+        env:
+          COBALT_URL: ${{ steps.ssm.outputs.COBALT_URL }}
+          COBALT_API_KEY: ${{ steps.ssm.outputs.COBALT_API_KEY }}
+        run: |
+          set -euo pipefail
+          body=$(jq -nc --argjson vars "$(cat mcp-env.json)" '{vars:$vars,redeploy:false}')
+          curl -fsS -X POST "$COBALT_URL/api/projects/mcp/env" \
+            -H "Authorization: Bearer $COBALT_API_KEY" \
+            -H 'Content-Type: application/json' \
+            -d "$body"
+          echo "runtime env synced to Cobalt (mcp)"
+
+      - name: Deploy mcp (zero-downtime blue/green)
+        uses: ./.github/actions/cobalt-deploy
+        with:
+          cobalt-url: ${{ steps.ssm.outputs.COBALT_URL }}
+          cobalt-api-key: ${{ steps.ssm.outputs.COBALT_API_KEY }}
+          project: mcp
+          image: ${{ needs.mcp-image.outputs.image }}
+          port: 3001

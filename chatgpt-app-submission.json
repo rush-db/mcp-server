@@ -1,0 +1,496 @@
+{
+  "$schema": "https://developers.openai.com/apps-sdk/schemas/chatgpt-app-submission.v1.json",
+  "schema_version": 1,
+  "app_info": {
+    "display_name": "RushDB",
+    "subtitle": "Memory layer for AI agents and apps",
+    "description": "RushDB is a memory layer for AI agents and apps. Push any JSON and get graph relationships and semantic search automatically — no schema, no pipeline, no glue code. Through ChatGPT, users can inspect the auto-detected graph schema, search records by graph traversal or semantic similarity, create and update structured records, manage relationships, export data, and configure managed embedding indexes for vector search.",
+    "category": "DEVELOPER_TOOLS"
+  },
+  "tools": {
+    "getSchemaMarkdown": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Retrieves graph schema metadata as Markdown without modifying records or indexes.",
+        "open_world_justification": "Only reads from the user's RushDB project and does not publish or send content externally.",
+        "destructive_justification": "Does not delete, overwrite, detach, or revoke any project data."
+      }
+    },
+    "getSchema": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Retrieves graph schema metadata as JSON without modifying records or indexes.",
+        "open_world_justification": "Only reads from the user's RushDB project and does not publish or send content externally.",
+        "destructive_justification": "Does not delete, overwrite, detach, or revoke any project data."
+      }
+    },
+    "findLabels": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Lists or filters record labels and counts without changing project data.",
+        "open_world_justification": "Only reads label metadata from the user's RushDB project.",
+        "destructive_justification": "Does not delete, overwrite, detach, or revoke any project data."
+      }
+    },
+    "createRecord": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Creates a record in the user's RushDB project and may upsert when merge options are supplied.",
+        "open_world_justification": "Writes only to the user's private RushDB project and does not publish public internet content.",
+        "destructive_justification": "Creates or merges records but does not directly delete records or properties."
+      }
+    },
+    "updateRecord": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Partially updates fields on an existing RushDB record.",
+        "open_world_justification": "Writes only to the user's private RushDB project and does not publish public internet content.",
+        "destructive_justification": "Preserves unspecified fields and does not delete records, properties, or relationships."
+      }
+    },
+    "deleteRecord": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Deletes a selected record from the user's RushDB project.",
+        "open_world_justification": "Deletes only inside the user's RushDB project and does not affect public internet state.",
+        "destructive_justification": "Permanently deletes a record by ID after user confirmation."
+      }
+    },
+    "findRecords": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Searches and aggregates records without modifying project data.",
+        "open_world_justification": "Only reads from the user's RushDB project and does not publish or send content externally.",
+        "destructive_justification": "Does not delete, overwrite, detach, or revoke any project data."
+      }
+    },
+    "getRecord": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Fetches one record by ID without changing it.",
+        "open_world_justification": "Only reads from the user's RushDB project and does not publish or send content externally.",
+        "destructive_justification": "Does not delete, overwrite, detach, or revoke any project data."
+      }
+    },
+    "getRecordsByIds": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Fetches multiple records by ID without changing them.",
+        "open_world_justification": "Only reads from the user's RushDB project and does not publish or send content externally.",
+        "destructive_justification": "Does not delete, overwrite, detach, or revoke any project data."
+      }
+    },
+    "attachRelation": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Creates relationships between existing RushDB records.",
+        "open_world_justification": "Writes only to the user's private RushDB project and does not publish public internet content.",
+        "destructive_justification": "Adds relationships without deleting records, properties, or existing relationships."
+      }
+    },
+    "detachRelation": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Removes relationships between existing RushDB records.",
+        "open_world_justification": "Changes only the user's private RushDB project and does not affect public internet state.",
+        "destructive_justification": "Deletes selected relationships between records."
+      }
+    },
+    "findRelationships": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Searches relationship metadata without modifying relationships.",
+        "open_world_justification": "Only reads from the user's RushDB project and does not publish or send content externally.",
+        "destructive_justification": "Does not delete, overwrite, detach, or revoke any project data."
+      }
+    },
+    "bulkCreateRecords": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Creates multiple records in the user's RushDB project and may upsert when merge options are supplied.",
+        "open_world_justification": "Writes only to the user's private RushDB project and does not publish public internet content.",
+        "destructive_justification": "Creates or merges records but does not directly delete records or properties."
+      }
+    },
+    "bulkDeleteRecords": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Deletes all records matching the supplied query from the user's RushDB project.",
+        "open_world_justification": "Deletes only inside the user's RushDB project and does not affect public internet state.",
+        "destructive_justification": "Permanently deletes every matching record and requires preview and explicit confirmation in the descriptor."
+      }
+    },
+    "exportRecords": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Exports matching records as CSV content without modifying project data.",
+        "open_world_justification": "Only reads from the user's RushDB project and returns data to the conversation.",
+        "destructive_justification": "Does not delete, overwrite, detach, or revoke any project data."
+      }
+    },
+    "helpAddToClient": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Returns setup instructions without reading or changing project data.",
+        "open_world_justification": "Does not write to external systems or publish content.",
+        "destructive_justification": "Does not delete, overwrite, detach, or revoke any project data."
+      }
+    },
+    "getQueryBuilderPrompt": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Returns the built-in query guidance prompt without changing project data.",
+        "open_world_justification": "Does not write to external systems or publish content.",
+        "destructive_justification": "Does not delete, overwrite, detach, or revoke any project data."
+      }
+    },
+    "getSearchQuerySpec": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Returns static SearchQuery syntax documentation without changing project data.",
+        "open_world_justification": "Does not write to external systems or publish content.",
+        "destructive_justification": "Does not delete, overwrite, detach, or revoke any project data."
+      }
+    },
+    "setRecord": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Replaces all fields on an existing RushDB record.",
+        "open_world_justification": "Writes only to the user's private RushDB project and does not publish public internet content.",
+        "destructive_justification": "Overwrites a record and removes any existing fields that are omitted from the new data."
+      }
+    },
+    "findOneRecord": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Fetches the first matching record without changing it.",
+        "open_world_justification": "Only reads from the user's RushDB project and does not publish or send content externally.",
+        "destructive_justification": "Does not delete, overwrite, detach, or revoke any project data."
+      }
+    },
+    "findUniqRecord": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Fetches one uniquely matching record without changing it.",
+        "open_world_justification": "Only reads from the user's RushDB project and does not publish or send content externally.",
+        "destructive_justification": "Does not delete, overwrite, detach, or revoke any project data."
+      }
+    },
+    "deleteRecordById": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Deletes a selected record from the user's RushDB project.",
+        "open_world_justification": "Deletes only inside the user's RushDB project and does not affect public internet state.",
+        "destructive_justification": "Permanently deletes a record by ID after user confirmation."
+      }
+    },
+    "propertyValues": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Retrieves value statistics or distinct values for a property without changing project data.",
+        "open_world_justification": "Only reads from the user's RushDB project and does not publish or send content externally.",
+        "destructive_justification": "Does not delete, overwrite, detach, or revoke any project data."
+      }
+    },
+    "findProperties": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Lists and filters property metadata without changing project data.",
+        "open_world_justification": "Only reads from the user's RushDB project and does not publish or send content externally.",
+        "destructive_justification": "Does not delete, overwrite, detach, or revoke any project data."
+      }
+    },
+    "findPropertyById": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Fetches one property's metadata without changing it.",
+        "open_world_justification": "Only reads from the user's RushDB project and does not publish or send content externally.",
+        "destructive_justification": "Does not delete, overwrite, detach, or revoke any project data."
+      }
+    },
+    "deleteProperty": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Deletes a selected property and its values from the user's RushDB project.",
+        "open_world_justification": "Deletes only inside the user's RushDB project and does not affect public internet state.",
+        "destructive_justification": "Permanently deletes the selected property values from all records that carry it."
+      }
+    },
+    "findEmbeddingIndexes": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Lists embedding index policies without creating or changing indexes.",
+        "open_world_justification": "Only reads from the user's RushDB project and does not publish or send content externally.",
+        "destructive_justification": "Does not delete, overwrite, detach, or revoke any project data."
+      }
+    },
+    "createEmbeddingIndex": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Creates an embedding index policy and may start managed indexing in the user's RushDB project.",
+        "open_world_justification": "Writes only to the user's private RushDB project and does not publish public internet content.",
+        "destructive_justification": "Creates an index policy but does not delete records, properties, or existing indexes."
+      }
+    },
+    "upsertEmbeddingVectors": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Writes supplied vectors into an external embedding index.",
+        "open_world_justification": "Writes only to the user's private RushDB project and does not publish public internet content.",
+        "destructive_justification": "Upserts vectors for an index but does not delete records, properties, or indexes."
+      }
+    },
+    "deleteEmbeddingIndex": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Deletes an embedding index policy from the user's RushDB project.",
+        "open_world_justification": "Deletes only inside the user's RushDB project and does not affect public internet state.",
+        "destructive_justification": "Permanently deletes the selected embedding index policy and strips its stored vectors."
+      }
+    },
+    "getEmbeddingIndexStats": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Retrieves embedding index progress statistics without modifying indexes.",
+        "open_world_justification": "Only reads from the user's RushDB project and does not publish or send content externally.",
+        "destructive_justification": "Does not delete, overwrite, detach, or revoke any project data."
+      }
+    },
+    "vectorSearch": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Runs semantic similarity search and returns matching records without changing project data.",
+        "open_world_justification": "Only reads from the user's RushDB project and does not publish or send content externally.",
+        "destructive_justification": "Does not delete, overwrite, detach, or revoke any project data."
+      }
+    }
+  },
+  "test_cases": [
+    {
+      "description": "Discover the project graph schema before answering a data question.",
+      "user_prompt": "What kinds of records and relationships are available in my RushDB project?",
+      "file_attachment_urls": null,
+      "tools_triggered": "getSchemaMarkdown",
+      "expected_output": "Returns the project labels, property metadata, and relationship directions in a concise schema summary.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Search records after schema discovery.",
+      "user_prompt": "Find the open tasks created this month and group them by owner.",
+      "file_attachment_urls": null,
+      "tools_triggered": "getSchemaMarkdown, getSearchQuerySpec, findRecords",
+      "expected_output": "Returns matching records or aggregate rows using valid labels, fields, and query syntax.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Create a new memory record.",
+      "user_prompt": "Remember that we chose Clerk for authentication on May 20, 2026.",
+      "file_attachment_urls": null,
+      "tools_triggered": "getSchemaMarkdown, createRecord",
+      "expected_output": "Creates a structured record with an appropriate label and confirms the new record ID.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Preview and update an existing record.",
+      "user_prompt": "Find the record about Clerk authentication and update its status to approved.",
+      "file_attachment_urls": null,
+      "tools_triggered": "getSchemaMarkdown, findRecords, updateRecord",
+      "expected_output": "Finds the relevant record, applies a partial update, and confirms the update without removing other fields.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Create a relationship between resolved records.",
+      "user_prompt": "Connect the Clerk authentication decision to the web app project record.",
+      "file_attachment_urls": null,
+      "tools_triggered": "getSchemaMarkdown, findOneRecord, attachRelation",
+      "expected_output": "Resolves the source and target records, creates the relationship, and reports that it was attached.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Export a filtered dataset.",
+      "user_prompt": "Export my customer records from California as CSV.",
+      "file_attachment_urls": null,
+      "tools_triggered": "getSchemaMarkdown, findProperties, exportRecords",
+      "expected_output": "Returns CSV content for records matching the requested label and filter.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Configure and use semantic search.",
+      "user_prompt": "Create a semantic index for Note.content, then find notes similar to our pricing discussion.",
+      "file_attachment_urls": null,
+      "tools_triggered": "findEmbeddingIndexes, createEmbeddingIndex, getEmbeddingIndexStats, vectorSearch",
+      "expected_output": "Creates or checks the semantic index, reports index readiness, and returns semantically similar records when searchable.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Safely handle irreversible deletion.",
+      "user_prompt": "Delete all test import records from last week.",
+      "file_attachment_urls": null,
+      "tools_triggered": "getSchemaMarkdown, findRecords, bulkDeleteRecords",
+      "expected_output": "Previews the matching records, asks for explicit confirmation, and deletes only after confirmation.",
+      "expected_output_url": null
+    }
+  ],
+  "negative_test_cases": [
+    {
+      "description": "Do not trigger for unrelated calendar scheduling.",
+      "user_prompt": "Schedule a meeting with Ana tomorrow at 2 PM.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because it cannot create or manage calendar events.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger for public web search.",
+      "user_prompt": "Search the web for the latest database benchmark results.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because it only works with RushDB project data.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger for payment or credential handling.",
+      "user_prompt": "Store my credit card number and login password for later.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not collect or store sensitive payment credentials or passwords.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger destructive actions without confirmation.",
+      "user_prompt": "Actually never mind, do not delete anything from RushDB.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should avoid delete tools and answer that no deletion was performed.",
+      "expected_output_url": null
+    }
+  ]
+}

@@ -15,7 +15,7 @@
 import { db } from '../util/db.js'
 import type { DBRecordInstance, SemanticSearchParams as VectorSearchParams } from '@rushdb/javascript-sdk'
 
-export async function vectorSearch(params: VectorSearchParams & { topK?: number }) {
+export async function vectorSearch(params: VectorSearchParams) {
   const result = await db.records.vectorSearch(params)
   return result.data.map((r: DBRecordInstance) => r.data)
 }

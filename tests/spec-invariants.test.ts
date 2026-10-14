@@ -1,32 +1,19 @@
 /**
- * Guards the three hand-synced copies of the SearchQuery spec against drift and
+ * Guards the MCP-owned query spec and prompt against drift and
  * against reintroducing instruction bias that causes silent LLM hallucinations
  * (invented labels/fields/relationship types return empty results, not errors).
  *
- * Copies under guard:
- *   1. packages/mcp-server/searchQuerySpec.ts        (master)
- *   2. packages/skills/rushdb-query-builder/references/search-query-spec.md (port)
- *   3. platform/core/src/core/ai/search-query-spec.prompt.md (NL→query mirror)
+ * Cross-repository consumers pin a published version of this package. Their
+ * release checks validate integration compatibility; this repository must stay
+ * independently cloneable and testable.
  */
-import { readFileSync } from 'fs'
-import { resolve } from 'path'
 import { describe, expect, it } from 'vitest'
 
 import { SEARCH_QUERY_SPEC } from '../searchQuerySpec.js'
 import { SYSTEM_PROMPT } from '../systemPrompt.js'
 
-const PKG_ROOT = resolve(__dirname, '..')
-
 const COPIES: Record<string, string> = {
-  'mcp-server/searchQuerySpec.ts': SEARCH_QUERY_SPEC,
-  'skills/rushdb-query-builder/references/search-query-spec.md': readFileSync(
-    resolve(PKG_ROOT, '../skills/rushdb-query-builder/references/search-query-spec.md'),
-    'utf-8'
-  ),
-  'core/ai/search-query-spec.prompt.md': readFileSync(
-    resolve(PKG_ROOT, '../../platform/core/src/core/ai/search-query-spec.prompt.md'),
-    'utf-8'
-  )
+  'mcp-server/searchQuerySpec.ts': SEARCH_QUERY_SPEC
 }
 
 /**

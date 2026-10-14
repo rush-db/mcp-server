@@ -33,10 +33,12 @@
     "inspector": "npx @modelcontextprotocol/inspector build/index.js",
     "types:check": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepack": "pnpm build",
+    "release": "pnpm build && changeset publish"
   },
   "dependencies": {
-    "@rushdb/javascript-sdk": "workspace:*",
+    "@rushdb/javascript-sdk": "^3.0.0",
     "@modelcontextprotocol/sdk": "1.27.1",
     "@hono/node-server": "1.19.13",
     "dotenv": "^16.4.7",
@@ -46,7 +48,7 @@
     "prom-client": "^15.1.3"
   },
   "devDependencies": {
-    "@rushdb/javascript-sdk": "workspace:*",
+    "@changesets/cli": "^2.27.10",
     "@modelcontextprotocol/inspector": "^0.17.0",
     "@types/node": "^20.17.23",
     "esbuild": "^0.25.0",
@@ -59,9 +61,15 @@
   "publishConfig": {
     "access": "public"
   },
-  "bugs": "https://github.com/rush-db/rushdb/issues",
+  "bugs": "https://github.com/rush-db/mcp-server/issues",
   "repository": {
-    "type": "https",
-    "url": "https://github.com/rush-db/rushdb"
+    "type": "git",
+    "url": "git+https://github.com/rush-db/mcp-server.git"
+  },
+  "homepage": "https://github.com/rush-db/mcp-server#readme",
+  "packageManager": "pnpm@10.1.0",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=10.0.0"
   }
 }

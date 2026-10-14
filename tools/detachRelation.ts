@@ -26,9 +26,8 @@ export async function detachRelation(params: {
   targetIds?: string[]
   relationType?: string
   direction?: 'outgoing' | 'incoming' | 'bidirectional'
-  transactionId?: string
 }) {
-  const { sourceId, targetId, targetIds, relationType, direction = 'outgoing', transactionId } = params
+  const { sourceId, targetId, targetIds, relationType, direction = 'outgoing' } = params
 
   const options: any = {}
   if (relationType) {
@@ -47,7 +46,7 @@ export async function detachRelation(params: {
     return { success: false, message: 'No targetId(s) provided' }
   }
 
-  await db.records.detach({ source: sourceId, target: targets, options }, transactionId)
+  await db.records.detach({ source: sourceId, target: targets, options })
 
   return {
     success: true,

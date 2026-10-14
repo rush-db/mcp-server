@@ -15,6 +15,6 @@
 import { vectorSearch } from './vectorSearch.js'
 import type { SemanticSearchParams as VectorSearchParams } from '@rushdb/javascript-sdk'
 
-export async function semanticSearch(params: VectorSearchParams & { topK?: number }) {
+export async function semanticSearch(params: VectorSearchParams) {
   return vectorSearch(params)
 }

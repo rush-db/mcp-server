@@ -37,6 +37,6 @@ export async function bulkDeleteRecords({
   const result = await db.records.delete(searchQuery, transactionId)
 
   return {
-    message: result.data?.message || 'Records deleted successfully'
+    message: result?.data?.message || 'Records deleted successfully'
   }
 }
