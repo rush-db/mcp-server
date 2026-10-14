@@ -1,5 +1,67 @@
 # @rushdb/mcp-server
 
+## 3.0.0
+
+### Major Changes
+
+- 7662baa: 3.0: runs on `@rushdb/javascript-sdk` 3 (RushDB Cloud on the Rust engine, or a standalone engine in
+  direct mode). Breaking: `detachRelation` no longer accepts `transactionId` (detach cannot be staged
+  in a transaction), and without `relationType` it removes relationships of every type.
+
+### Minor Changes
+
+- 7662baa: Add standalone-engine direct mode for local stdio MCP clients and advertise only engine-backed tools in that mode.
+- 7662baa: Direct mode (`RUSHDB_MODE=direct`, a standalone engine) offers every tool whose SDK methods run on the
+  engine — now including relationships, bulk import, CSV export, text indexes and keyword search, external
+  vector indexes, and `findRecords` with ordering, projections and aggregations. Which tools are offered is
+  derived from the SDK's list of RushDB Cloud methods (`TOOL_SDK_METHODS`), so the two cannot drift; the
+  Cloud tools (`smartSearch`, the relationship-pattern tools) are not listed and are refused if called.
+  `vectorSearch`, `semanticSearch` and `createEmbeddingIndex` describe their direct-mode form. New
+  `RUSHDB_ENGINE_SCOPE` for a multitenant engine.
+
+  `detachRelation` without `relationType` removes relationships of every type, and no longer takes a
+  `transactionId` (the engine cannot stage a detach). In direct mode, creating, updating, deleting by id,
+  attaching and importing records inside a transaction are staged into it.
+
+- 7662baa: Hybrid search fusion controls. `fusion: 'dbsf'` fuses each leg's scores normalized by its own
+  distribution (mean ± 3σ, as Qdrant defines DBSF) instead of ranks (`rrf`, the default, with
+  `rrfK`). Each leg takes a `weight` (its share of the fused score) and a `prefetchLimit` (hits it
+  ranks before fusion, 1–10,000). On `vectorSearch`, the top-level `weight`/`prefetchLimit` are the
+  vector leg's and `text.weight`/`text.prefetchLimit` the text leg's; the result reports `fusion`.
+- 7662baa: Embedding indexes have names. A name is unique within a project, defaults to
+  `<label>.<property>.<model>.<dimensions>.<similarity>`, and is returned when indexes are listed.
+  Search (`index`), inline vectors (`index`), stats, vector upsert and delete accept an index's name
+  as well as its id. The dashboard asks for the name in a second step when creating an index,
+  prefilled with the default.
+- 7662baa: Keyword (BM25) search. Text indexes cover one property of a label, or every string of it (`*`),
+  and are declared, listed and dropped through `/text-indexes` (`db.textIndexes`, MCP
+  `createTextIndex` / `listTextIndexes` / `deleteTextIndex`), with a default name of
+  `<label>.<property>.text`. `POST /search/text` (`db.records.textSearch`, MCP `textSearch`) ranks
+  matching records among those `labels` and `where` select, and `total` counts every match. A
+  vector search with a `text` leg becomes a hybrid search the engine fuses. The dashboard lists and
+  creates text indexes on the Search Indexes page and adds a Keyword search mode to Records.
+
+### Patch Changes
+
+- 7662baa: The RushDB engine is the only data store; what remained of the Neo4j-backed platform is removed.
+
+  - Projects no longer carry a `customDb` (bring-your-own Neo4j) connection: the `projects.custom_db`
+    column is dropped (migration `0010_drop_project_custom_db`), `GET /sdk/settings` no longer
+    returns `customDb`, `DELETE /projects/:id` no longer takes `shouldStoreCustomDbData`, and the
+    dashboard drops the "External Instance" badge. Every project is metered the same way.
+  - `POST /query/raw` returns `{ records }` (the always-empty `summary` is gone). Raw queries are
+    openCypher run by the engine, which must have the `cypher` language enabled.
+  - A write sent with `x-transaction-id` defers its side effects (recount, schema refresh,
+    relationship automation) to `POST /tx/:txId/commit`, and a failed request inside a transaction
+    rolls the transaction back. Both checks keyed off a Neo4j transaction object that was no longer
+    attached, so neither ran.
+  - `RUSHDB_TRANSACTION_TIMEOUT_MS` no longer falls back to `NEO4J_TRANSACTION_TIMEOUT_MS`.
+  - The CLI `db-restore` command now recounts the project after the restore; it never ran before.
+  - Deploy templates (Compose, Helm, Fly) run the engine with `--multitenant --languages cypher`,
+    which Core requires: it scopes every request to its project. Heroku's `app.json` sets
+    `RUST_ENGINE_URL` / `RUST_ENGINE_TOKEN`, the variables Core reads.
+  - SDK: `serverSettings` drops `customDB` / `managedDB`; doc comments no longer mention Neo4j.
+
 ## 2.13.0
 
 ### Minor Changes
@@ -76,15 +138,19 @@
 
   ```ts
   db.records.find({
-    labels: ['EMPLOYEE'],
+    labels: ["EMPLOYEE"],
     where: {
       EMPLOYEE: {
-        $alias: '$manager',
-        $relation: { type: 'REPORTS_TO', direction: 'out', hops: { min: 1, max: 4 } },
-        name: { $contains: 'Alice' }
-      }
-    }
-  })
+        $alias: "$manager",
+        $relation: {
+          type: "REPORTS_TO",
+          direction: "out",
+          hops: { min: 1, max: 4 },
+        },
+        name: { $contains: "Alice" },
+      },
+    },
+  });
   ```
 
   `hops` accepts an exact count (`hops: 3`) or a range (`{ min?, max? }`, `min` defaults to 1). `type` and `direction` apply to every hop; the nested label and its criteria constrain only the endpoint record. Omitting `type` traverses any relationship — RushDB's internal property metadata edges are automatically excluded, so untyped traversal never leaves the user's data model.
@@ -93,11 +159,15 @@
 
   ```ts
   db.records.find({
-    labels: ['ACCOUNT'],
+    labels: ["ACCOUNT"],
     where: {
-      $cycle: { type: 'TRANSFERRED_TO', direction: 'out', hops: { min: 2, max: 6 } }
-    }
-  })
+      $cycle: {
+        type: "TRANSFERRED_TO",
+        direction: "out",
+        hops: { min: 2, max: 6 },
+      },
+    },
+  });
   ```
 
   `$cycle` is a record-level predicate: its value is the traversal spec itself (`type`, `direction`, `hops` — `hops` mandatory, `min` ≥ 2, defaulting to 2). A cycle has no separate endpoint, so it accepts no `$alias`, no property criteria, and no nested labels. Combine with `$not` to select records not on a cycle.
