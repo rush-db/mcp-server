@@ -19,6 +19,22 @@ import { fileURLToPath } from 'url'
 import { dirname, resolve } from 'path'
 import fs from 'fs'
 
+export function isDirectMode(): boolean {
+  return process.env.RUSHDB_MODE?.toLowerCase() === 'direct'
+}
+
+function directEngineConfig(): { token: string; engineUrl: string; scope?: string } {
+  const token = process.env.RUSHDB_ENGINE_TOKEN
+  const engineUrl = process.env.RUSHDB_ENGINE_URL
+  if (!token || !engineUrl) {
+    throw new Error(
+      'RUSHDB_MODE=direct requires RUSHDB_ENGINE_URL and RUSHDB_ENGINE_TOKEN. ' +
+        'These are the standalone engine URL and engine token, not a RushDB Cloud API key.'
+    )
+  }
+  return { token, engineUrl, scope: process.env.RUSHDB_ENGINE_SCOPE || undefined }
+}
+
 // ─── .env fallback resolution ────────────────────────────────────────────────
 
 function ensureEnvLoaded() {
@@ -84,6 +100,11 @@ let _stdioDb: any | null = null
  */
 export function getStdioDb(): any {
   if (!_stdioDb) {
+    if (isDirectMode()) {
+      const { token, engineUrl, scope } = directEngineConfig()
+      _stdioDb = new RushDBCtor(token, { direct: true, engineUrl, ...(scope ? { scope } : {}) })
+      return _stdioDb
+    }
     const token = process.env.RUSHDB_API_KEY
     if (!token) {
       throw new Error(

@@ -6,13 +6,14 @@ This guide explains how to run and test the RushDB MCP server locally, including
 
 - [ngrok](https://ngrok.com/) installed and authenticated (`ngrok config add-authtoken <token>`)
 - pnpm installed
-- Dependencies installed (`pnpm install` from the repo root)
+- Dependencies installed (`pnpm install`)
+- A checkout of the platform repo (`rush-db/rushdb`), for the OAuth flow
 
 ---
 
 ## 1. Start the Platform
 
-From the **repo root**, start the platform (API on port 3000 + dashboard on port 3005):
+From the **platform repo root**, start the platform (API on port 3000 + dashboard on port 3005):
 
 ```bash
 pnpm dev
@@ -49,10 +50,6 @@ Copy the `https://` URL from the output — you'll need it as `MCP_RESOURCE_URL`
 First build the MCP server:
 
 ```bash
-# from repo root
-pnpm --filter @rushdb/mcp-server build
-
-# or from packages/mcp-server
 pnpm build
 ```
 
@@ -66,7 +63,7 @@ MCP_RESOURCE_URL=https://<your-mcp-ngrok-subdomain>.ngrok-free.app \
 RUSHDB_JWT_PRIVATE_KEY_BASE64=<base64-pem-private-key> \
 RUSHDB_JWT_PUBLIC_KEY_BASE64=<base64-pem-public-key> \
 RUSHDB_JWT_KID=local-rs256-key-1 \
-node packages/mcp-server/build/index.js
+node build/index.js
 ```
 
 > **`MCP_RESOURCE_URL`** must be the ngrok URL from step 2. Every time ngrok restarts it issues a new URL (unless you have a paid static domain), so you'll need to restart the MCP server with the updated value.
@@ -94,8 +91,8 @@ node packages/mcp-server/build/index.js
 To test tools directly without an AI client:
 
 ```bash
-pnpm --filter @rushdb/mcp-server inspector
-# or: npx @modelcontextprotocol/inspector packages/mcp-server/build/index.js
+pnpm inspector
+# or: npx @modelcontextprotocol/inspector build/index.js
 ```
 
 Set the transport to **HTTP** and point it at `http://localhost:3001/mcp`. The inspector lets you call any tool interactively and inspect request/response payloads.
@@ -132,7 +129,7 @@ Connected applications can be revoked from the **Workspace Settings** page (`/wo
 
 ---
 
-## Troubleshooting: stdio (`npx`) server fails with `-32000` inside the monorepo
+## Troubleshooting: stdio (`npx`) server fails with `-32000` inside this repo
 
 If you wire the **stdio** server into an MCP client (Claude Code, Cursor, …) using an `.mcp.json` that lives **inside this repo**, the client may fail to connect with `Failed to reconnect to rushdb: -32000`, and launching the command by hand prints:
 
@@ -140,16 +137,16 @@ If you wire the **stdio** server into an MCP client (Claude Code, Cursor, …) u
 sh: rushdb-mcp: command not found
 ```
 
-**Cause.** `@rushdb/mcp-server` is a pnpm workspace package (`pnpm-workspace.yaml` → `packages/*`). When an **unversioned** `npx @rushdb/mcp-server` runs with a working directory inside the monorepo, npx resolves it to the local workspace copy instead of the registry, finds its declared `rushdb-mcp` bin, but that bin is not linked in `node_modules/.bin` — so the process exits before the MCP handshake and the client surfaces `-32000`. Adding `-p` does **not** help: it still resolves the workspace package. Outside the repo the bare command downloads `@rushdb/mcp-server` from npm and works as documented.
+**Cause.** This repo *is* `@rushdb/mcp-server`. When an **unversioned** `npx @rushdb/mcp-server` runs with a working directory inside it, npx can resolve the local package instead of the registry, find its declared `rushdb-mcp` bin, but that bin is not linked in `node_modules/.bin` — so the process exits before the MCP handshake and the client surfaces `-32000`. Adding `-p` does **not** help. Outside the repo the bare command downloads `@rushdb/mcp-server` from npm and works as documented.
 
-**Fix.** Pin a **version** so npx fetches from the registry instead of the workspace (works both inside and outside the repo):
+**Fix.** Pin a **version** so npx fetches from the registry instead of the local package (works both inside and outside the repo):
 
 ```jsonc
 {
   "mcpServers": {
     "rushdb": {
       "command": "npx",
-      // unversioned ["-y", "@rushdb/mcp-server"] resolves the workspace pkg and fails inside this repo.
+      // unversioned ["-y", "@rushdb/mcp-server"] can resolve the local package and fail inside this repo.
       // A version tag forces registry resolution:
       "args": ["-y", "-p", "@rushdb/mcp-server@latest", "rushdb-mcp"],
       "env": { "RUSHDB_API_KEY": "<your-api-key>" }
@@ -158,14 +155,14 @@ sh: rushdb-mcp: command not found
 }
 ```
 
-Or run your local build directly (uses in-repo code; run `pnpm --filter @rushdb/mcp-server build` first):
+Or run your local build directly (uses in-repo code; run `pnpm build` first):
 
 ```jsonc
 {
   "mcpServers": {
     "rushdb": {
       "command": "node",
-      "args": ["packages/mcp-server/build/index.js"],
+      "args": ["build/index.js"],
       "env": { "RUSHDB_API_KEY": "<your-api-key>" }
     }
   }

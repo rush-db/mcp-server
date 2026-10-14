@@ -15,6 +15,7 @@
 import { db } from '../util/db.js'
 
 export async function createEmbeddingIndex(params: {
+  name?: string
   label: string
   propertyName: string
   sourceType?: 'managed' | 'external'

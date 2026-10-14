@@ -1,0 +1,47 @@
+name: rushdb-mcp-server
+version: 2.13.0
+repository: https://github.com/rush-db/mcp-server
+package:
+  name: "@rushdb/mcp-server"
+  command: npx
+  args:
+    - "@rushdb/mcp-server"
+description: >-
+  RushDB MCP Server exposing RushDB's Labeled Meta Property Graph (LMPG) database to MCP clients.
+  Includes discovery-first Query Builder prompt for safe, deterministic SearchQuery construction.
+maintainers:
+  - 1pxone
+license: Apache-2.0
+environment:
+  required:
+    - name: RUSHDB_API_KEY
+      description: RushDB API key (not needed in direct mode)
+  optional:
+    - name: RUSHDB_API_URL
+      description: Base API URL (defaults to https://api.rushdb.com/api/v1)
+    - name: RUSHDB_MODE
+      description: Set to `direct` to talk to a standalone RushDB engine instead of the platform
+    - name: RUSHDB_ENGINE_URL
+      description: Standalone engine base URL (direct mode)
+    - name: RUSHDB_ENGINE_TOKEN
+      description: Standalone engine token (direct mode)
+    - name: RUSHDB_ENGINE_SCOPE
+      description: Tenant on a multitenant standalone engine (direct mode)
+prompts:
+  - name: rushdb.queryBuilder
+    description: Discovery-first Query Builder system prompt for constructing validated SearchQuery objects.
+    arguments: []
+usage:
+  clients:
+    - name: Claude Desktop
+      config:
+        command: npx
+        args: ["@rushdb/mcp-server"]
+        env:
+          RUSHDB_API_KEY: "<your-api-key>"
+    - name: VS Code MCP
+      config:
+        command: npx
+        args: ["@rushdb/mcp-server"]
+        env:
+          RUSHDB_API_KEY: "<your-api-key>"

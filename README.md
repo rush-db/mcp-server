@@ -32,7 +32,7 @@ Your client redirects to RushDB for OAuth sign-in and receives a scoped token. N
 
 ---
 
-### Local (API key)
+### Local (RushDB Cloud API key)
 
 For Claude Desktop, Cursor, Windsurf, VS Code, and other stdio MCP clients:
 
@@ -62,7 +62,40 @@ Place this in:
 
 **3. That's it.** The agent now has 13 tools for storing, querying, and traversing structured memory.
 
-> `RUSHDB_API_URL` is optional and defaults to `https://api.rushdb.com/api/v1`. Override for self-hosted or staging environments.
+> `RUSHDB_API_URL` is optional and defaults to `https://api.rushdb.com/api/v1`. It targets the RushDB Platform REST API.
+
+### Local standalone engine (no Cloud account)
+
+Run the Rust engine, then point a local **stdio** MCP client at it. This mode calls the
+public engine protocol directly; it does not use a RushDB Cloud API key, dashboard, or OAuth.
+
+```bash
+RUSHDB_TOKEN=local-development-token rushdb up --data-dir ./rushdb-data
+```
+
+```json
+{
+  "mcpServers": {
+    "rushdb": {
+      "command": "npx",
+      "args": ["-y", "@rushdb/mcp-server"],
+      "env": {
+        "RUSHDB_MODE": "direct",
+        "RUSHDB_ENGINE_URL": "http://127.0.0.1:3000",
+        "RUSHDB_ENGINE_TOKEN": "local-development-token"
+      }
+    }
+  }
+}
+```
+
+Direct mode offers every tool whose work the engine does: schema discovery, record reads and writes (with
+ordering, projections and aggregations), relationships, labels and properties, bulk import and CSV export, text
+indexes and keyword search, and external vector indexes with vector search by a `queryVector` you supply.
+The RushDB Cloud tools are not listed and are refused if called: `smartSearch` (natural-language search),
+the relationship-pattern tools, and anything that needs managed embeddings (a text `query` for vector search,
+managed indexes). The MCP HTTP transport is unavailable in direct mode because its OAuth flow belongs to the
+platform; run the server through stdio on the same machine as the client.
 
 ---
 
@@ -151,12 +184,21 @@ These apply to local (API key) mode only. Remote OAuth connections do not use en
 | `RUSHDB_API_KEY` | yes      | Your RushDB API key                                     |
 | `RUSHDB_API_URL` | no       | API base URL (default: `https://api.rushdb.com/api/v1`) |
 
+For standalone direct mode, use these instead:
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `RUSHDB_MODE` | yes | Set to `direct`. |
+| `RUSHDB_ENGINE_URL` | yes | Standalone engine base URL, for example `http://127.0.0.1:3000`. |
+| `RUSHDB_ENGINE_TOKEN` | yes | Token configured for the standalone engine. |
+| `RUSHDB_ENGINE_SCOPE` | no | Tenant on an engine started with `--multitenant`. |
+
 ---
 
 ## Registry & autodiscovery
 
 - `mcp.yaml` at the repo root enables autodiscovery by MCP registries
-- `packages/mcp-server/glama.json` contains Glama metadata
+- `glama.json` at the repo root contains Glama metadata
 - Package: `@rushdb/mcp-server`, command: `npx`
 
 ---
@@ -164,17 +206,17 @@ These apply to local (API key) mode only. Remote OAuth connections do not use en
 ## Development
 
 ```bash
-git clone https://github.com/rush-db/rushdb
-cd rushdb/packages/mcp-server
+git clone https://github.com/rush-db/mcp-server
+cd mcp-server
 npm install
 npm run build
 ```
 
 ### Troubleshooting: `rushdb-mcp: command not found` / MCP error `-32000`
 
-This only happens when the MCP client launches the server with a **working directory inside this monorepo** (e.g. an `.mcp.json` at the repo root used by Claude Code / Cursor). `@rushdb/mcp-server` is a pnpm workspace package here, so any unversioned `npx @rushdb/mcp-server` (even with `-p`) resolves to the local workspace copy whose `rushdb-mcp` bin isn't linked in `node_modules/.bin`. The process exits before the MCP handshake, which the client reports as `-32000`.
+This only happens when the MCP client launches the server with a **working directory inside this repo** (e.g. an `.mcp.json` at the repo root used by Claude Code / Cursor). This repo *is* `@rushdb/mcp-server`, so an unversioned `npx @rushdb/mcp-server` (even with `-p`) can resolve to the local package, whose `rushdb-mcp` bin isn't linked in `node_modules/.bin`. The process exits before the MCP handshake, which the client reports as `-32000`.
 
-The published package is unaffected — the config above works as-is **outside** the repo. To run from inside the monorepo, **pin a version** so npx fetches from the registry instead of resolving the workspace package:
+The published package is unaffected — the config above works as-is **outside** the repo. To run from inside the repo, **pin a version** so npx fetches from the registry instead of resolving the local package:
 
 ```json
 {
@@ -195,7 +237,7 @@ Alternatively, run the local build directly (uses your in-repo code, must be bui
   "mcpServers": {
     "rushdb": {
       "command": "node",
-      "args": ["packages/mcp-server/build/index.js"],
+      "args": ["build/index.js"],
       "env": { "RUSHDB_API_KEY": "your-api-key-here" }
     }
   }

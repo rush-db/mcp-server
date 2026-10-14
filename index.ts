@@ -23,7 +23,13 @@ import {
   ListPromptsRequestSchema,
   GetPromptRequestSchema
 } from '@modelcontextprotocol/sdk/types.js'
-import { ToolName, isToolAllowedForScopes, tools } from './tools.js'
+import {
+  DIRECT_ENGINE_TOOL_NAMES,
+  DIRECT_MODE_NOTES,
+  ToolName,
+  isToolAllowedForScopes,
+  tools
+} from './tools.js'
 import { findLabels } from './tools/findLabels.js'
 import { createRecord } from './tools/createRecord.js'
 import { updateRecord } from './tools/updateRecord.js'
@@ -57,13 +63,18 @@ import { deleteEmbeddingIndex } from './tools/deleteEmbeddingIndex.js'
 import { getEmbeddingIndexStats } from './tools/getEmbeddingIndexStats.js'
 import { upsertEmbeddingVectors } from './tools/upsertEmbeddingVectors.js'
 import { vectorSearch } from './tools/vectorSearch.js'
+import { listTextIndexes } from './tools/listTextIndexes.js'
+import { createTextIndex } from './tools/createTextIndex.js'
+import { deleteTextIndex } from './tools/deleteTextIndex.js'
+import { textSearch } from './tools/textSearch.js'
+import type { VectorSearchParams } from '@rushdb/javascript-sdk'
 import { semanticSearch } from './tools/semanticSearch.js'
 import { smartSearch } from './tools/smartSearch.js'
 import { getSchema } from './tools/getSchema.js'
 import { getSchemaMarkdown } from './tools/getSchemaMarkdown.js'
 import SYSTEM_PROMPT from './systemPrompt.js'
 import { getSearchQuerySpec } from './tools/getSearchQuerySpec.js'
-import { requestContext, RequestContext } from './util/db.js'
+import { isDirectMode, requestContext, RequestContext } from './util/db.js'
 import { fetchApiKeyScopes, resolveRequestContext, makeMcpAuthError } from './util/auth.js'
 
 type TextContent = {
@@ -93,6 +104,20 @@ function getActiveScopes(): string[] {
   return requestContext.getStore()?.scopes ?? stdioScopes
 }
 
+function getActiveSystemPrompt(): string {
+  if (!isDirectMode()) return SYSTEM_PROMPT
+  return `${SYSTEM_PROMPT}
+
+## This server runs against a standalone RushDB engine
+
+Only the tools this server lists are available. The RushDB Cloud features are not: natural-language
+search (smartSearch), relationship-pattern suggestions, and managed embeddings. Vector search takes a
+queryVector you supply (a text query needs managed embeddings), and only external embedding indexes
+can be created. Inside a transaction, creating, updating, deleting by id, attaching and importing
+records are staged; other writes do not accept a transaction. Explain that boundary plainly if the
+user asks for one of these features.`
+}
+
 // ─── MCP Server factory ───────────────────────────────────────────────────────
 // Each call creates an independent MCP Server instance with all handlers wired.
 // In STDIO mode a single server is created once.
@@ -110,7 +135,7 @@ function createMcpServer(): Server {
       // Conforming clients (ChatGPT, Claude Desktop, etc.) inject this as
       // system-level context before any tool call — it is the canonical way
       // to deliver server-wide behavioural rules to the model automatically.
-      instructions: SYSTEM_PROMPT,
+      instructions: getActiveSystemPrompt(),
       capabilities: {
         tools: {},
         prompts: {}
@@ -123,7 +148,17 @@ function createMcpServer(): Server {
     // records:write) don't see write tools at all.
     const scopes = getActiveScopes()
     return {
-      tools: tools.filter((tool) => isToolAllowedForScopes(tool, scopes))
+      tools: tools
+        .filter(
+          (tool) =>
+            isToolAllowedForScopes(tool, scopes) &&
+            (!isDirectMode() || DIRECT_ENGINE_TOOL_NAMES.has(tool.name))
+        )
+        .map((tool) =>
+          isDirectMode() && DIRECT_MODE_NOTES[tool.name] ?
+            { ...tool, description: tool.description + DIRECT_MODE_NOTES[tool.name] }
+          : tool
+        )
     }
   })
 
@@ -154,7 +189,7 @@ function createMcpServer(): Server {
           role: 'user',
           content: {
             type: 'text',
-            text: SYSTEM_PROMPT
+            text: getActiveSystemPrompt()
           }
         }
       ]
@@ -166,6 +201,12 @@ function createMcpServer(): Server {
     const args = request.params.arguments || {}
 
     const toolDefinition = tools.find((tool) => tool.name === toolName)
+    if (isDirectMode() && !DIRECT_ENGINE_TOOL_NAMES.has(toolName)) {
+      throw new McpError(
+        ErrorCode.InvalidRequest,
+        `Tool ${toolName} requires RushDB Cloud and is not available with RUSHDB_MODE=direct.`
+      )
+    }
     if (toolDefinition && !isToolAllowedForScopes(toolDefinition, getActiveScopes())) {
       throw new McpError(
         ErrorCode.InvalidRequest,
@@ -288,8 +329,7 @@ function createMcpServer(): Server {
               targetId: args.targetId as string | undefined,
               targetIds: args.targetIds as string[] | undefined,
               relationType: args.relationType as string | undefined,
-              direction: args.direction as 'outgoing' | 'incoming' | 'bidirectional' | undefined,
-              transactionId: args.transactionId as string | undefined
+              direction: args.direction as 'outgoing' | 'incoming' | 'bidirectional' | undefined
             })
             return toolResult(detachResult, detachResult.message)
 
@@ -385,7 +425,7 @@ function createMcpServer(): Server {
             return toolResult(helpAddToClientResult, helpAddToClientResult.instructions)
 
           case 'getQueryBuilderPrompt':
-            return toolResult({ prompt: SYSTEM_PROMPT }, SYSTEM_PROMPT)
+            return toolResult({ prompt: getActiveSystemPrompt() }, getActiveSystemPrompt())
 
           case 'getSearchQuerySpec': {
             const spec = await getSearchQuerySpec()
@@ -485,6 +525,7 @@ function createMcpServer(): Server {
 
           case 'createEmbeddingIndex': {
             const newIndex = await createEmbeddingIndex({
+              name: args.name as string | undefined,
               label: args.label as string,
               propertyName: args.propertyName as string,
               sourceType: args.sourceType as 'managed' | 'external' | undefined,
@@ -530,15 +571,23 @@ function createMcpServer(): Server {
 
           case 'vectorSearch': {
             const searchResults = await vectorSearch({
-              propertyName: args.propertyName as string,
+              index: args.index as string | undefined,
+              propertyName: args.propertyName as string | undefined,
               query: args.query as string | undefined,
               queryVector: args.queryVector as number[] | undefined,
-              labels: args.labels as string[],
+              labels: args.labels as string[] | undefined,
               sourceType: args.sourceType as 'managed' | 'external' | undefined,
               similarityFunction: args.similarityFunction as 'cosine' | 'euclidean' | undefined,
               dimensions: args.dimensions as number | undefined,
               where: args.where as Record<string, unknown> | undefined,
-              topK: args.topK as number | undefined,
+              mode: args.mode as 'auto' | 'exact' | 'ann' | undefined,
+              ef: args.ef as number | undefined,
+              scoreThreshold: args.scoreThreshold as number | undefined,
+              text: args.text as VectorSearchParams['text'],
+              weight: args.weight as number | undefined,
+              prefetchLimit: args.prefetchLimit as number | undefined,
+              fusion: args.fusion as VectorSearchParams['fusion'],
+              rrfK: args.rrfK as number | undefined,
               limit: args.limit as number | undefined,
               skip: args.skip as number | undefined
             })
@@ -547,6 +596,47 @@ function createMcpServer(): Server {
               searchResults && searchResults.length > 0 ?
                 JSON.stringify(searchResults, null, 2)
               : 'No matching records found.'
+            )
+          }
+
+          case 'listTextIndexes': {
+            const indexes = await listTextIndexes()
+            return toolResult(
+              { indexes: indexes ?? [] },
+              indexes && indexes.length > 0 ? JSON.stringify(indexes, null, 2) : 'No text indexes found'
+            )
+          }
+
+          case 'createTextIndex': {
+            const index = await createTextIndex({
+              label: args.label as string,
+              property: args.property as string,
+              name: args.name as string | undefined,
+              consistency: args.consistency as 'eventual' | 'immediate' | undefined
+            })
+            return toolResult({ index }, JSON.stringify(index, null, 2))
+          }
+
+          case 'deleteTextIndex': {
+            await deleteTextIndex({ name: args.name as string })
+            return toolResult({ deleted: true }, `Text index ${args.name as string} dropped`)
+          }
+
+          case 'textSearch': {
+            const found = await textSearch({
+              query: args.query as string,
+              index: args.index as string | undefined,
+              property: args.property as string | undefined,
+              labels: args.labels as string[] | undefined,
+              where: args.where as Record<string, unknown> | undefined,
+              allTerms: args.allTerms as boolean | undefined,
+              phrase: args.phrase as boolean | undefined,
+              limit: args.limit as number | undefined,
+              skip: args.skip as number | undefined
+            })
+            return toolResult(
+              found,
+              found.data.length > 0 ? JSON.stringify(found, null, 2) : 'No matching records found.'
             )
           }
 
@@ -560,7 +650,9 @@ function createMcpServer(): Server {
               similarityFunction: args.similarityFunction as 'cosine' | 'euclidean' | undefined,
               dimensions: args.dimensions as number | undefined,
               where: args.where as Record<string, unknown> | undefined,
-              topK: args.topK as number | undefined,
+              mode: args.mode as 'auto' | 'exact' | 'ann' | undefined,
+              ef: args.ef as number | undefined,
+              scoreThreshold: args.scoreThreshold as number | undefined,
               limit: args.limit as number | undefined,
               skip: args.skip as number | undefined
             })
@@ -656,6 +748,12 @@ function createMcpServer(): Server {
 const mcpTransport = process.env.MCP_TRANSPORT || 'stdio'
 
 if (mcpTransport === 'http') {
+  if (isDirectMode()) {
+    throw new Error(
+      'RUSHDB_MODE=direct supports the local stdio MCP transport only. ' +
+        'The HTTP transport provides Platform OAuth and cannot authenticate standalone engine tokens.'
+    )
+  }
   // ── HTTP / OAuth mode ──
   // Uses Hono + StreamableHTTPServerTransport.
   // Each request gets its own MCP Server instance + per-request RushDB client.
@@ -970,7 +1068,7 @@ if (mcpTransport === 'http') {
 } else {
   // ── STDIO mode (default) ──
   // Resolve the API key's access level up front so read-only keys hide write tools.
-  if (process.env.RUSHDB_API_KEY) {
+  if (process.env.RUSHDB_API_KEY && !isDirectMode()) {
     stdioScopes = await fetchApiKeyScopes(process.env.RUSHDB_API_KEY)
   }
   const server = createMcpServer()
