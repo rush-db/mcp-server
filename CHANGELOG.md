@@ -1,5 +1,11 @@
 # @rushdb/mcp-server
 
+## 3.0.1
+
+### Patch Changes
+
+- 157242b: Refresh the published README with the current 3.x MCP tool catalog.
+
 ## 3.0.0
 
 ### Major Changes
