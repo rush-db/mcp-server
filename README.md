@@ -60,7 +60,7 @@ Place this in:
 - **Cursor** — MCP settings in the Cursor config panel
 - **Windsurf** — `~/.codeium/windsurf/mcp_config.json`
 
-**3. That's it.** The agent now has 13 tools for storing, querying, and traversing structured memory.
+**3. That's it.** The agent now has 43 tools for storing, querying, searching and traversing structured memory.
 
 > `RUSHDB_API_URL` is optional and defaults to `https://api.rushdb.com/api/v1`, the RushDB Cloud API.
 
@@ -105,59 +105,96 @@ After connecting, ask Claude or your agent naturally:
 
 > "Remember that we decided to use Clerk for auth, replacing Auth0, on 2026-04-10."
 
-The agent calls `CreateRecord` to store a structured memory. Later:
+The agent calls `createRecord` to store a structured memory. Later:
 
 > "What auth decisions have we made?"
 
-The agent calls `FindRecords` with a semantic query — no manual searching required.
+The agent calls `getSchemaMarkdown` to learn what is stored, then `findRecords`, `textSearch` or `vectorSearch`.
 
 > "Show me everything related to our auth system."
 
-The agent calls `FindRelationships` to traverse the graph of connected records.
+The agent calls `findRelationships` and `findRecords` with relationship filters to traverse the graph of connected records.
 
 ---
 
 ## Available tools
 
-### Discovery
+43 tools, named exactly as below. In direct mode the six RushDB Cloud tools are not listed. The full reference, with
+inputs and safety levels, is at [docs.rushdb.com/3.x/learn/reference/mcp/tools](https://docs.rushdb.com/3.x/learn/reference/mcp/tools).
 
-| Tool                | What it does                         |
-| ------------------- | ------------------------------------ |
-| `FindLabels`        | List record labels and record counts |
-| `FindProperties`    | List properties across labels        |
-| `FindRelationships` | Search relationships between records |
+### Discovery and properties
+
+| Tool | What it does |
+| --- | --- |
+| `getSchemaMarkdown` | The whole graph schema as compact Markdown; call once at session start |
+| `getSchema` | Structured schema JSON, with property IDs and vector indexes |
+| `findLabels` | List or filter record labels and their counts |
+| `findProperties` | Property names, types, IDs and record counts |
+| `findPropertyById` | Metadata for one property |
+| `propertyValues` | Numeric or date ranges, or distinct string and boolean values |
+| `deleteProperty` | Remove a property and its values from all records |
+| `getSearchQuerySpec` | The complete SearchQuery syntax reference |
+| `getQueryBuilderPrompt` | The built-in query builder prompt (for clients without MCP Prompts support) |
 
 ### Records
 
-| Tool                | What it does                                                   |
-| ------------------- | -------------------------------------------------------------- |
-| `CreateRecord`      | Store a new record                                             |
-| `GetRecord`         | Retrieve a record by ID                                        |
-| `UpdateRecord`      | Update an existing record                                      |
-| `DeleteRecord`      | Delete a record by ID                                          |
-| `FindRecords`       | Search records by properties, relationships, or semantic query |
-| `BulkCreateRecords` | Create multiple records at once                                |
-| `BulkDeleteRecords` | Delete records matching a query                                |
+| Tool | What it does |
+| --- | --- |
+| `findRecords` | Search records; ordering, projections, grouping and aggregations |
+| `findOneRecord` | The first matching record |
+| `findUniqRecord` | Exactly one matching record; fails on zero or several |
+| `getRecord` | One record by ID |
+| `getRecordsByIds` | Several records by ID |
+| `createRecord` | Insert or upsert one record |
+| `updateRecord` | Update some fields of a record |
+| `setRecord` | Replace all fields of a record |
+| `deleteRecord` / `deleteRecordById` | Delete one record by ID |
+| `bulkCreateRecords` | Insert or upsert many records with one label |
+| `bulkDeleteRecords` | Delete the records matching a query |
+| `exportRecords` | Export matching records as CSV |
 
 ### Relationships
 
-| Tool                          | What it does                                                         |
-| ----------------------------- | -------------------------------------------------------------------- |
-| `AttachRelation`              | Create a relationship between two records                            |
-| `DetachRelation`              | Remove a relationship                                                |
-| `ListRelationshipPatterns`    | List inferred relationship patterns and analysis status              |
-| `AnalyzeRelationshipPatterns` | Queue schema analysis for relationship suggestions                   |
-| `ApproveRelationshipPattern`  | Approve and apply a suggested pattern                                |
-| `IgnoreRelationshipPattern`   | Ignore a suggested pattern                                           |
-| `DeleteRelationshipPattern`   | Delete a saved pattern and optionally its materialized relationships |
+| Tool | What it does |
+| --- | --- |
+| `findRelationships` | Find relationships by type, properties or endpoint records |
+| `attachRelation` | Create relationships between existing records |
+| `detachRelation` | Remove relationships: every type unless `relationType` is given, both ways unless `direction` is |
+
+### Vector, keyword and hybrid search
+
+| Tool | What it does |
+| --- | --- |
+| `findEmbeddingIndexes` | List embedding indexes and their status |
+| `createEmbeddingIndex` | Create an embedding index (on a self-hosted engine, an external one with `dimensions`) |
+| `getEmbeddingIndexStats` | How many records an index covers and has vectors for |
+| `upsertEmbeddingVectors` | Write your own vectors to an external index |
+| `deleteEmbeddingIndex` | Delete an embedding index and its vectors |
+| `vectorSearch` | Rank records by vector similarity after exact filtering; add `text` for hybrid search |
+| `semanticSearch` | Deprecated alias for `vectorSearch` |
+| `listTextIndexes` | List text indexes and their status |
+| `createTextIndex` | Declare a BM25 text index over one property, or `*` for every string |
+| `deleteTextIndex` | Drop a text index |
+| `textSearch` | Keyword (BM25) search after exact filtering |
+
+### RushDB Cloud only
+
+| Tool | What it does |
+| --- | --- |
+| `smartSearch` | Turn a natural-language request into a SearchQuery and run it |
+| `listRelationshipPatterns` | List inferred relationship patterns and analysis status |
+| `analyzeRelationshipPatterns` | Queue schema analysis for relationship suggestions |
+| `approveRelationshipPattern` | Approve and apply a suggested pattern |
+| `ignoreRelationshipPattern` | Ignore a suggested pattern |
+| `deleteRelationshipPattern` | Delete a pattern and optionally its materialized relationships |
 
 ### Utilities
 
-| Tool                    | What it does                                                                                        |
-| ----------------------- | --------------------------------------------------------------------------------------------------- |
-| `ExportRecords`         | Export records to CSV                                                                               |
-| `HelpAddToClient`       | Get setup instructions for your MCP client                                                          |
-| `GetQueryBuilderPrompt` | Returns the built-in query builder system prompt (fallback for clients without MCP Prompts support) |
+| Tool | What it does |
+| --- | --- |
+| `helpAddToClient` | Setup instructions for your MCP client |
+
+Writes accept an optional `transactionId`.
 
 ---
 
@@ -167,17 +204,17 @@ RushDB exposes a system prompt via the MCP Prompts API that teaches the agent to
 
 **How it works:**
 
-1. Client calls `ListPrompts` → finds `rushdb.queryBuilder`
-2. Client calls `GetPrompt` → injects it as the session system message
+1. Client calls `prompts/list` → finds `rushdb.queryBuilder`
+2. Client calls `prompts/get` → injects it as the session system message
 3. Agent now does discovery-first queries automatically
 
-Most MCP clients handle this at session start. If your client doesn't support MCP Prompts, call `GetQueryBuilderPrompt` and inject the result as your system message.
+Most MCP clients handle this at session start. If your client doesn't support MCP Prompts, call `getQueryBuilderPrompt` and inject the result as your system message.
 
 ---
 
 ## Environment variables
 
-These apply to local (API key) mode only. Remote OAuth connections do not use environment variables.
+These apply to local (API key) mode. Remote OAuth connections do not use environment variables.
 
 | Variable         | Required | Description                                             |
 | ---------------- | -------- | ------------------------------------------------------- |
