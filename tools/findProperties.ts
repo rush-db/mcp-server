@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { db } from '../util/db.js'
+import { db, isDirectMode } from '../util/db.js'
 
 export async function findProperties(params: {
   where?: Record<string, any>
@@ -29,5 +29,10 @@ export async function findProperties(params: {
   if (orderBy && Object.keys(orderBy).length > 0) searchQuery.orderBy = orderBy
 
   const result = await db.properties.find(searchQuery)
+  // A self-hosted engine describes every property in one read; page here.
+  if (isDirectMode() && (skip || limit)) {
+    const start = skip ?? 0
+    return result.data.slice(start, limit ? start + limit : undefined)
+  }
   return result.data
 }
