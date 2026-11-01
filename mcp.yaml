@@ -1,5 +1,5 @@
 name: rushdb-mcp-server
-version: 3.1.0
+version: 3.1.1
 repository: https://github.com/rush-db/mcp-server
 package:
   name: "@rushdb/mcp-server"
