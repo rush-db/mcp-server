@@ -1,5 +1,5 @@
 name: rushdb-mcp-server
-version: 2.13.0
+version: 3.1.0
 repository: https://github.com/rush-db/mcp-server
 package:
   name: "@rushdb/mcp-server"
@@ -7,7 +7,7 @@ package:
   args:
     - "@rushdb/mcp-server"
 description: >-
-  RushDB MCP Server exposing RushDB's Labeled Meta Property Graph (LMPG) database to MCP clients.
+  MCP server for RushDB, the database for AI: schema-first tools for Claude, Cursor and other MCP clients.
   Includes discovery-first Query Builder prompt for safe, deterministic SearchQuery construction.
 maintainers:
   - 1pxone
@@ -20,7 +20,7 @@ environment:
     - name: RUSHDB_API_URL
       description: Base API URL (defaults to https://api.rushdb.com/api/v1)
     - name: RUSHDB_MODE
-      description: Set to `direct` to talk to a standalone RushDB engine instead of the platform
+      description: Set to `direct` to talk to a standalone RushDB engine instead of RushDB Cloud
     - name: RUSHDB_ENGINE_URL
       description: Standalone engine base URL (direct mode)
     - name: RUSHDB_ENGINE_TOKEN

@@ -1,6 +1,6 @@
 # RushDB MCP Server
 
-### Give your agent a memory layer. Via MCP.
+### Connect MCP clients to RushDB, the database for AI.
 
 Connect RushDB to any MCP-compatible AI client and your agent gains persistent, structured memory — semantically searchable and graph-traversable, without managing embeddings or schemas.
 
@@ -96,6 +96,16 @@ The RushDB Cloud tools are not listed and are refused if called: `smartSearch` (
 the relationship-pattern tools, and anything that needs managed embeddings (a text `query` for vector search,
 managed indexes). The MCP HTTP transport is unavailable in direct mode because its OAuth flow belongs to
 RushDB Cloud; run the server through stdio on the same machine as the client.
+
+---
+
+## Compatibility
+
+| Package | RushDB 3.x and RushDB Cloud | RushDB 2.x (legacy) |
+|---|---|---|
+| `@rushdb/javascript-sdk` | 3.x | 2.11.0: `npm i @rushdb/javascript-sdk@2` |
+| `rushdb` (PyPI) | 3.x | 2.10.0: `pip install "rushdb<3"` |
+| `@rushdb/mcp-server` | 3.x | 2.13.0: `npx @rushdb/mcp-server@2` |
 
 ---
 
