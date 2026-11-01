@@ -131,7 +131,11 @@ inputs and safety levels, is at [docs.rushdb.com/3.x/learn/reference/mcp/tools](
 | `findLabels` | List or filter record labels and their counts |
 | `findProperties` | Property names, types, IDs and record counts |
 | `findPropertyById` | Metadata for one property |
-| `propertyValues` | Numeric or date ranges, or distinct string and boolean values |
+| `propertyValues` | Numeric or date ranges, or distinct values; with `query`, the matching values and their counts (`match: similar` for near spellings; `domainOnMiss` lists a small field's values when nothing matches) |
+| `searchValues` | Where a value from the question is stored: matches across every property, with label, property and record count |
+| `getSchemaSummary` | Every label's properties with distinct counts, ranges and the values of small fields, in one live read |
+| `resolveNames` | The real label or property behind a name that is not in the schema (`patients` → `Patient`) |
+| `getJoinCandidates` | How labels reference each other, from property names and exact value containment, with evidence (RushDB Cloud only) |
 | `deleteProperty` | Remove a property and its values from all records |
 | `getSearchQuerySpec` | The complete SearchQuery syntax reference |
 | `getQueryBuilderPrompt` | The built-in query builder prompt (for clients without MCP Prompts support) |

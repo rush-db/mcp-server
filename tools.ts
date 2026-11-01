@@ -59,6 +59,10 @@ export type ToolName =
   | 'vectorSearch'
   | 'semanticSearch'
   | 'smartSearch'
+  | 'searchValues'
+  | 'getSchemaSummary'
+  | 'resolveNames'
+  | 'getJoinCandidates'
 
 /**
  * The SDK methods each tool calls. A tool built on a RushDB Cloud method (the
@@ -108,7 +112,11 @@ export const TOOL_SDK_METHODS: Record<ToolName, string[]> = {
   textSearch: ['records.textSearch'],
   vectorSearch: ['records.vectorSearch'],
   semanticSearch: ['records.vectorSearch'],
-  smartSearch: ['ai.search']
+  smartSearch: ['ai.search'],
+  searchValues: ['ai.searchValues'],
+  getSchemaSummary: ['ai.getSchemaSummary'],
+  resolveNames: ['ai.resolveNames'],
+  getJoinCandidates: ['ai.getJoinCandidates']
 }
 
 /** Tools offered in direct mode (against a standalone engine). */
@@ -605,6 +613,69 @@ const outputSchemas = {
       warnings: { type: 'array', items: { type: 'string' } }
     },
     required: ['data', 'total', 'searchQuery', 'warnings'],
+    additionalProperties: false
+  },
+  searchValues: {
+    type: 'object',
+    properties: {
+      searchValues: {
+        anyOf: [
+          {
+            type: 'object',
+            properties: {
+              matches: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    label: { type: 'string' },
+                    property: { type: 'string' },
+                    value: {},
+                    count: { type: 'number' }
+                  },
+                  required: ['label', 'property', 'value', 'count'],
+                  additionalProperties: true
+                }
+              },
+              total: { type: 'number' },
+              skipped: { type: 'array', items: { type: 'string' } }
+            },
+            required: ['matches', 'total'],
+            additionalProperties: true
+          },
+          { type: 'null' }
+        ]
+      }
+    },
+    required: ['searchValues'],
+    additionalProperties: false
+  },
+  getSchemaSummary: {
+    type: 'object',
+    properties: { labels: { type: 'array', items: { type: 'object', additionalProperties: true } } },
+    required: ['labels'],
+    additionalProperties: false
+  },
+  resolveNames: {
+    type: 'object',
+    properties: {
+      names: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: { label: { type: 'string' }, property: { type: 'string' }, score: { type: 'number' } },
+          required: ['label', 'score'],
+          additionalProperties: true
+        }
+      }
+    },
+    required: ['names'],
+    additionalProperties: false
+  },
+  getJoinCandidates: {
+    type: 'object',
+    properties: { candidates: { type: 'array', items: { type: 'object', additionalProperties: true } } },
+    required: ['candidates'],
     additionalProperties: false
   }
 } satisfies Record<ToolName, Schema>
@@ -1296,7 +1367,21 @@ export const tools: Tool[] = (
             type: 'string',
             description: 'The `id` field from the property object returned by findProperties.'
           },
-          query: { type: 'string', description: 'Optional text filter — only applies to string properties.' },
+          query: {
+            type: 'string',
+            description:
+              'Optional text filter: keep the values whose text matches (strings as stored; numbers and dates as shown; a date such as 1993/11/12 or 2013-06 also matches that date in another layout). Matching values come ranked by record count, with counts.'
+          },
+          match: {
+            type: 'string',
+            enum: ['contains', 'prefix', 'exact', 'similar'],
+            description: 'How `query` matches (default contains). `similar` finds near spellings (spiderman → Spider-Man).'
+          },
+          domainOnMiss: {
+            type: 'number',
+            description:
+              'When nothing matches and the property holds at most this many distinct values, return all of them instead (searchMissed: true): the data may store the idea as a code ("positive" → "+").'
+          },
           orderBy: {
             type: 'string',
             enum: ['asc', 'desc'],
@@ -1306,6 +1391,73 @@ export const tools: Tool[] = (
           skip: { type: 'number', description: 'Number of string values to skip.' }
         },
         required: ['propertyId']
+      }
+    },
+    {
+      name: 'searchValues',
+      annotations: READ_ONLY,
+      securitySchemes: READ_SCHEMES,
+      description:
+        'Find where a value from the question is stored: searches the exact value dictionaries of every property at once and returns { matches: [{ label, property, value, count }], total }. ' +
+        'Use it before filtering on a name, code, or phrase the user typed, instead of guessing the field or spelling. ' +
+        'match: contains (default), prefix, exact, or similar (near spellings, for typos and punctuation: "spiderman" finds "Spider-Man"). ' +
+        'No match means no stored value contains the text: check the spelling, try a shorter word, or read a field\'s values with propertyValues.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          text: { type: 'string', description: 'The text to look for.' },
+          match: { type: 'string', enum: ['contains', 'prefix', 'exact', 'similar'] },
+          labels: { type: 'array', items: { type: 'string' }, description: 'Labels to search (all when omitted).' },
+          limit: { type: 'number', description: 'Most matches (default 50, max 1000).' },
+          minSimilarity: { type: 'number', description: 'similar only: least similarity, 0–1 (default 0.6).' }
+        },
+        required: ['text']
+      }
+    },
+    {
+      name: 'getSchemaSummary',
+      annotations: READ_ONLY,
+      securitySchemes: READ_SCHEMES,
+      description:
+        'Every label with its properties in one live read (never cached): per property its type, record count, exact distinct count, min/max for numbers and dates, and the full value list when it holds few (fewValues, default 10); per label its relationships. ' +
+        'Use it to learn how values are coded (e.g. KCT holds "-" and "+") without one call per field.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          labels: { type: 'array', items: { type: 'string' }, description: 'Labels to summarize (all when omitted).' },
+          fewValues: { type: 'number', description: 'List values of properties with at most this many (default 10, max 100).' }
+        }
+      }
+    },
+    {
+      name: 'resolveNames',
+      annotations: READ_ONLY,
+      securitySchemes: READ_SCHEMES,
+      description:
+        'Find the real label or property behind a name you are unsure of (case, separators and plural endings ignored, then ranked by spelling): "patients" → Patient, "patients.birthdate" → Patient.Birthday. ' +
+        'Call it instead of guessing when a label or field name is not in the schema. Returns [{ label, property?, score }].',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          text: { type: 'string', description: 'A label, a property, or Label.property.' },
+          limit: { type: 'number', description: 'Most suggestions (default 5).' }
+        },
+        required: ['text']
+      }
+    },
+    {
+      name: 'getJoinCandidates',
+      annotations: READ_ONLY,
+      securitySchemes: READ_SCHEMES,
+      description:
+        'Which properties reference records of another label (or the same one), found from property names and exact value containment, with evidence (matched values and records, coverage). RushDB Cloud only. ' +
+        'Use it to learn how labels connect when the data has no relationships yet, e.g. before joining in a query. Returns [{ source, target, reasons, relationshipType, confidence, evidence, rationale }].',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          labels: { type: 'array', items: { type: 'string' }, description: 'Only candidates touching these labels.' },
+          minConfidence: { type: 'number', description: 'Lowest confidence returned (default 0.5).' }
+        }
       }
     },
     {

@@ -25,6 +25,10 @@ TOOL MAP (exact names — never invent alternatives)
 - getSchema          → same as getSchemaMarkdown but structured JSON; use only when you need property id values for propertyValues.
 - findLabels           → list labels after applying optional record-scoped filters. Skip if getSchemaMarkdown already ran this session.
 - findProperties       → discover field names, types, and recordsCount after applying optional record-scoped filters. Call before any filtered query if fields are unknown.
+- searchValues         → find where a user-typed value is stored (label, property, exact spelling, count) across every property; use before filtering on a name/code/phrase; match:"similar" for near spellings.
+- getSchemaSummary     → every label's properties with distinct counts, ranges, and the values of small fields in one read; shows how values are coded ("+" for positive).
+- resolveNames         → the real label/property behind a name not in the schema ("patients" → Patient). Use instead of guessing.
+- getJoinCandidates    → how labels reference each other (property names + exact value containment, with evidence) when relationships are missing.
 - findRecords          → primary read/query/list/search tool; execute SearchQuery (the only place select + groupBy are valid for metrics). Response: { data:[...], total:N }.
 - findRelationships    → inspect relationships; where filters relationship type/properties, source/target filter endpoint records. No select/groupBy.
 - exportRecords        → export matching records to CSV only when the user explicitly asks for export/download/CSV. Do not use it for normal read/list/search; use findRecords.

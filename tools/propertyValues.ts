@@ -17,14 +17,18 @@ import { db } from '../util/db.js'
 export async function propertyValues(params: {
   propertyId: string
   query?: string
+  match?: 'contains' | 'prefix' | 'exact' | 'similar'
+  domainOnMiss?: number
   orderBy?: 'asc' | 'desc'
   limit?: number
   skip?: number
 }) {
-  const { propertyId, query, orderBy, limit, skip } = params
+  const { propertyId, query, match, domainOnMiss, orderBy, limit, skip } = params
 
   const searchQuery: Record<string, any> = {}
   if (query) searchQuery.query = query
+  if (match) searchQuery.match = match
+  if (domainOnMiss) searchQuery.domainOnMiss = domainOnMiss
   if (orderBy) searchQuery.orderBy = orderBy
   if (limit) searchQuery.limit = limit
   if (skip) searchQuery.skip = skip

@@ -53,6 +53,10 @@ import { findOneRecord } from './tools/findOneRecord.js'
 import { findUniqRecord } from './tools/findUniqRecord.js'
 import { deleteRecordById } from './tools/deleteRecordById.js'
 import { propertyValues } from './tools/propertyValues.js'
+import { searchValues } from './tools/searchValues.js'
+import { getSchemaSummary } from './tools/getSchemaSummary.js'
+import { resolveNames } from './tools/resolveNames.js'
+import { getJoinCandidates } from './tools/getJoinCandidates.js'
 import { findProperties } from './tools/findProperties.js'
 import { findPropertyById } from './tools/findPropertyById.js'
 import { deleteProperty } from './tools/deleteProperty.js'
@@ -472,6 +476,8 @@ function createMcpServer(): Server {
             const pvResult = await propertyValues({
               propertyId: args.propertyId as string,
               query: args.query as string | undefined,
+              match: args.match as 'contains' | 'prefix' | 'exact' | 'similar' | undefined,
+              domainOnMiss: args.domainOnMiss as number | undefined,
               orderBy: args.orderBy as 'asc' | 'desc' | undefined,
               limit: args.limit as number | undefined,
               skip: args.skip as number | undefined
@@ -479,6 +485,50 @@ function createMcpServer(): Server {
             return toolResult(
               { propertyValues: pvResult ?? null },
               pvResult ? JSON.stringify(pvResult, null, 2) : 'No property values found'
+            )
+          }
+
+          case 'searchValues': {
+            const found = await searchValues({
+              text: args.text as string,
+              match: args.match as 'contains' | 'prefix' | 'exact' | 'similar' | undefined,
+              labels: args.labels as string[] | undefined,
+              limit: args.limit as number | undefined,
+              minSimilarity: args.minSimilarity as number | undefined
+            })
+            return toolResult(
+              { searchValues: found ?? null },
+              found?.matches?.length ? JSON.stringify(found, null, 2) : 'No stored value matches the text.'
+            )
+          }
+
+          case 'getSchemaSummary': {
+            const summary = await getSchemaSummary({
+              labels: args.labels as string[] | undefined,
+              fewValues: args.fewValues as number | undefined
+            })
+            return toolResult({ labels: summary ?? [] }, JSON.stringify(summary ?? [], null, 2))
+          }
+
+          case 'resolveNames': {
+            const names = await resolveNames({
+              text: args.text as string,
+              limit: args.limit as number | undefined
+            })
+            return toolResult(
+              { names: names ?? [] },
+              names?.length ? JSON.stringify(names, null, 2) : 'No label or property is spelled like that.'
+            )
+          }
+
+          case 'getJoinCandidates': {
+            const candidates = await getJoinCandidates({
+              labels: args.labels as string[] | undefined,
+              minConfidence: args.minConfidence as number | undefined
+            })
+            return toolResult(
+              { candidates: candidates ?? [] },
+              candidates?.length ? JSON.stringify(candidates, null, 2) : 'No join candidates found.'
             )
           }
 
@@ -692,8 +742,22 @@ function createMcpServer(): Server {
 
       const message = error instanceof Error ? error.message : String(error)
 
-      // Check if error is related to API endpoint or missing env vars
-      if (
+      // Direct mode talks to a self-hosted engine with its own URL and token:
+      // name those, and leave HTTP errors (a 401 is a wrong token, not a
+      // missing one) to the status mapping below.
+      if (isDirectMode()) {
+        const unreachable =
+          message.includes('Invalid URL') ||
+          message.includes('Failed to fetch') ||
+          message.includes('Network error') ||
+          message.includes('ECONNREFUSED')
+        if (message.includes('RUSHDB_ENGINE_') || unreachable) {
+          const text = unreachable
+            ? `Could not reach the RushDB engine at ${process.env.RUSHDB_ENGINE_URL ?? '(RUSHDB_ENGINE_URL unset)'}: ${message}`
+            : message
+          return toolResult({ error: text }, text)
+        }
+      } else if (
         message.includes('RUSHDB_API_KEY') ||
         message.includes('Invalid URL') ||
         message.includes('Failed to fetch') ||
@@ -706,7 +770,9 @@ function createMcpServer(): Server {
       }
 
       // Map raw HTTP status codes from the SDK fetcher into actionable messages
-      const httpStatus = /^(\d{3})$/.exec(message.trim())?.[1]
+      // The SDK fetcher throws the bare status; its direct engine transport
+      // adds a reason (`401 engine request failed`).
+      const httpStatus = /^(\d{3})(?:\s|$)/.exec(message.trim())?.[1]
       if (httpStatus) {
         const status = Number(httpStatus)
         let hint: string
@@ -714,8 +780,9 @@ function createMcpServer(): Server {
           hint =
             'Bad request (400): the query or payload is invalid. Check field names, operators, and required arguments. Call getSearchQuerySpec for the correct SearchQuery syntax.'
         } else if (status === 401) {
-          hint =
-            'Unauthorized (401): the API key is missing or invalid. Ask the user to verify RUSHDB_API_KEY.'
+          hint = isDirectMode()
+            ? 'Unauthorized (401): the engine rejected the token. Ask the user to verify RUSHDB_ENGINE_TOKEN for the engine at RUSHDB_ENGINE_URL.'
+            : 'Unauthorized (401): the API key is missing or invalid. Ask the user to verify RUSHDB_API_KEY.'
         } else if (status === 403) {
           hint = 'Forbidden (403): access denied. The API key does not have permission for this operation.'
         } else if (status === 404) {
