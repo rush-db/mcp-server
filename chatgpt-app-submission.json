@@ -3,8 +3,8 @@
   "schema_version": 1,
   "app_info": {
     "display_name": "RushDB",
-    "subtitle": "Memory layer for AI agents and apps",
-    "description": "RushDB is a memory layer for AI agents and apps. Push any JSON and get graph relationships and semantic search automatically — no schema, no pipeline, no glue code. Through ChatGPT, users can inspect the auto-detected graph schema, search records by graph traversal or semantic similarity, create and update structured records, manage relationships, export data, and configure managed embedding indexes for vector search.",
+    "subtitle": "The database for AI",
+    "description": "RushDB is a database for AI. It records fields, types and values on every write, so agents can read the schema before they query. Through ChatGPT, users can inspect the auto-detected graph schema, search records by graph traversal or semantic similarity, create and update structured records, manage relationships, export data, and configure managed embedding indexes for vector search.",
     "category": "DEVELOPER_TOOLS"
   },
   "tools": {
