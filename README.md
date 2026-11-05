@@ -195,7 +195,7 @@ inputs and safety levels, is at [docs.rushdb.com/3.x/learn/reference/mcp/tools](
 
 | Tool | What it does |
 | --- | --- |
-| `smartSearch` | Turn a natural-language request into a SearchQuery and run it |
+| `smartSearch` | Turn a natural-language request into SQL and run it |
 | `listRelationshipPatterns` | List inferred relationship patterns and analysis status |
 | `analyzeRelationshipPatterns` | Queue schema analysis for relationship suggestions |
 | `approveRelationshipPattern` | Approve and apply a suggested pattern |
