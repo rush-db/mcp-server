@@ -717,13 +717,14 @@ function createMcpServer(): Server {
           case 'smartSearch': {
             const searchResults = await smartSearch({
               prompt: args.prompt as string,
-              currentQuery: args.currentQuery as Record<string, any> | undefined
+              skip: args.skip as number | undefined,
+              limit: args.limit as number | undefined
             })
             return toolResult(
               searchResults,
               searchResults.data.length > 0 ?
                 JSON.stringify(searchResults, null, 2)
-              : `No matching records found.\n\nGenerated SearchQuery:\n${JSON.stringify(searchResults.searchQuery, null, 2)}`
+              : `No matching records found.\n\nGenerated SQL:\n${searchResults.sql}`
             )
           }
 

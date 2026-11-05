@@ -609,10 +609,11 @@ const outputSchemas = {
     properties: {
       data: { type: 'array', items: RECORD_SCHEMA },
       total: { type: 'number' },
-      searchQuery: { type: 'object', additionalProperties: true },
+      sql: { type: 'string' },
+      name: { type: 'string' },
       warnings: { type: 'array', items: { type: 'string' } }
     },
-    required: ['data', 'total', 'searchQuery', 'warnings'],
+    required: ['data', 'total', 'sql', 'warnings'],
     additionalProperties: false
   },
   searchValues: {
@@ -1914,21 +1915,19 @@ export const tools: Tool[] = (
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
-        'Convert a natural-language question into a RushDB SearchQuery using the project schema, execute it, and return matching records plus the generated query. ' +
-        'Use this for user-facing questions such as "Who are piloting Falcon?" or "Find planets 3-5 hops away from Tatooine". ' +
+        'Convert a natural-language question into one read-only SQL statement over the project schema, run it, and return the results plus the statement, a short title for it and any warnings. ' +
+        'Rows that select a record come back as records; aggregates such as counts and totals come back as plain rows. ' +
+        'Use this for user-facing questions such as "Who are piloting Falcon?" or "How many orders per city?". ' +
         'For direct vector similarity over an embedding index, use vectorSearch instead.',
       inputSchema: {
         type: 'object',
         properties: {
           prompt: {
             type: 'string',
-            description: 'Natural-language search request to convert into a SearchQuery and execute.'
+            description: 'Natural-language search request to convert into SQL and run.'
           },
-          currentQuery: {
-            type: 'object',
-            description: 'Optional current SearchQuery context from a dashboard/query-builder session.',
-            additionalProperties: true
-          }
+          limit: { type: 'number', description: 'Maximum number of results to return (at most 1000).' },
+          skip: { type: 'number', description: 'Number of results to skip for pagination (default 0).' }
         },
         required: ['prompt']
       }

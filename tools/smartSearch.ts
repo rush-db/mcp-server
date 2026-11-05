@@ -13,15 +13,16 @@
 // limitations under the License.
 
 import { db } from '../util/db.js'
-import type { DBRecordInstance, SearchQuery } from '@rushdb/javascript-sdk'
+import type { DBRecordInstance } from '@rushdb/javascript-sdk'
 
-export async function smartSearch(params: { prompt: string; currentQuery?: SearchQuery }) {
-  const result = await db.ai.search(params.prompt, { currentQuery: params.currentQuery })
+export async function smartSearch(params: { prompt: string; skip?: number; limit?: number }) {
+  const result = await db.ai.search(params.prompt, { skip: params.skip, limit: params.limit })
 
   return {
     data: result.data.map((record: DBRecordInstance) => record.data),
     total: result.total,
-    searchQuery: result.searchQuery,
+    sql: result.sql ?? '',
+    ...(result.name ? { name: result.name } : {}),
     warnings: result.warnings ?? []
   }
 }
