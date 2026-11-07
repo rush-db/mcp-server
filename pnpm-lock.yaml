@@ -15,8 +15,8 @@ importers:
         specifier: 1.27.1
         version: 1.27.1(zod@3.25.76)
       '@rushdb/javascript-sdk':
-        specifier: ^3.2.0
-        version: 3.2.0
+        specifier: ^3.3.0
+        version: 3.3.0
       dotenv:
         specifier: ^16.4.7
         version: 16.6.1
@@ -1029,8 +1029,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@rushdb/javascript-sdk@3.2.0':
-    resolution: {integrity: sha512-pj4/hOEiffCaK2SwGAcq+fggCpUMZtnbmihXP6UaSRZzHrLsU104oAYiYSiWFsB/0TG+v/XUt3x+WAhS4ojyaA==}
+  '@rushdb/javascript-sdk@3.3.0':
+    resolution: {integrity: sha512-Z9FK6UVpuSQwnqCTg1g6T/B029JIYulzLDiUx8iAbH9wlg7H8kezX0KrOmWsKc9zF+3jvJFA9HAGXHK7ktB30w==}
     engines: {node: '>=18.0.0', pnpm: '>=10.0.0'}
 
   '@sinclair/typebox@0.27.12':
@@ -3241,7 +3241,7 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.63.3':
     optional: true
 
-  '@rushdb/javascript-sdk@3.2.0': {}
+  '@rushdb/javascript-sdk@3.3.0': {}
 
   '@sinclair/typebox@0.27.12': {}
 
