@@ -27,6 +27,7 @@ export type ToolName =
   | 'getRecordsByIds'
   | 'attachRelation'
   | 'detachRelation'
+  | 'updateRelation'
   | 'findRelationships'
   | 'listRelationshipPatterns'
   | 'analyzeRelationshipPatterns'
@@ -81,6 +82,7 @@ export const TOOL_SDK_METHODS: Record<ToolName, string[]> = {
   getRecordsByIds: ['records.findById'],
   attachRelation: ['records.attach'],
   detachRelation: ['records.detach'],
+  updateRelation: ['relationships.update'],
   findRelationships: ['relationships.find'],
   listRelationshipPatterns: ['relationships.patterns.list'],
   analyzeRelationshipPatterns: ['relationships.patterns.analyze'],
@@ -395,6 +397,16 @@ const outputSchemas = {
   getRecordsByIds: RECORDS_OUTPUT_SCHEMA,
   attachRelation: MESSAGE_SCHEMA,
   detachRelation: MESSAGE_SCHEMA,
+  updateRelation: {
+    type: 'object',
+    properties: {
+      success: { type: 'boolean' },
+      message: { type: 'string' },
+      updated: { type: 'number' }
+    },
+    required: ['success', 'message', 'updated'],
+    additionalProperties: false
+  },
   findRelationships: {
     type: 'object',
     properties: {
@@ -1005,6 +1017,58 @@ export const tools: Tool[] = (
           }
         },
         required: ['sourceId']
+      }
+    },
+    {
+      name: 'updateRelation',
+      annotations: WRITE,
+      securitySchemes: WRITE_SCHEMES,
+      description:
+        'Change the properties of existing relationships of one type between a record and target records: ' +
+        '`set` writes values (null stores an explicit null), `unset` removes properties. ' +
+        'Pairs without such a relationship are skipped; `updated` counts the relationships changed. ' +
+        'Not available inside a transaction. ' +
+        'Use findRelationships first to confirm the relationship type, direction and current properties.',
+
+      inputSchema: {
+        type: 'object',
+        properties: {
+          sourceId: { type: 'string', description: 'ID of the source record' },
+          targetId: {
+            type: 'string',
+            description: 'ID of one target record (deprecated if targetIds provided)'
+          },
+          targetIds: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'IDs of multiple target records'
+          },
+          relationType: { type: 'string', description: 'Type of the relationships to update' },
+          direction: {
+            type: 'string',
+            enum: ['outgoing', 'incoming'],
+            description: 'outgoing: source → target (default); incoming: target → source',
+            default: 'outgoing'
+          },
+          set: {
+            type: 'object',
+            description:
+              'Properties to write on the relationships. Scalars or arrays of one scalar type; reserved RushDB/internal keys are rejected.',
+            additionalProperties: true
+          },
+          unset: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Names of properties to remove from the relationships'
+          },
+          types: {
+            type: 'object',
+            description:
+              'Type of `set` properties whose JSON form is ambiguous, e.g. { "since": "datetime" } stores an ISO 8601 string as a datetime. Every name must also be in `set`.',
+            additionalProperties: { type: 'string', enum: ['string', 'number', 'boolean', 'datetime'] }
+          }
+        },
+        required: ['sourceId', 'relationType']
       }
     },
     {

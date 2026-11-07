@@ -173,6 +173,7 @@ inputs and safety levels, is at [docs.rushdb.com/3.x/learn/reference/mcp/tools](
 | --- | --- |
 | `findRelationships` | Find relationships by type, properties or endpoint records |
 | `attachRelation` | Create relationships between existing records |
+| `updateRelation` | Change or remove properties on existing relationships; `types` stores an ISO string as a datetime (RushDB 3.0.4+) |
 | `detachRelation` | Remove relationships: every type unless `relationType` is given, both ways unless `direction` is |
 
 ### Vector, keyword and hybrid search
