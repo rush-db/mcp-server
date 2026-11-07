@@ -37,6 +37,7 @@ import { deleteRecord } from './tools/deleteRecord.js'
 import { findRecords } from './tools/findRecords.js'
 import { getRecord } from './tools/getRecord.js'
 import { attachRelation } from './tools/attachRelation.js'
+import { updateRelation } from './tools/updateRelation.js'
 import { detachRelation } from './tools/detachRelation.js'
 import { findRelationships } from './tools/findRelationships.js'
 import { listRelationshipPatterns } from './tools/listRelationshipPatterns.js'
@@ -336,6 +337,19 @@ function createMcpServer(): Server {
               direction: args.direction as 'outgoing' | 'incoming' | 'bidirectional' | undefined
             })
             return toolResult(detachResult, detachResult.message)
+
+          case 'updateRelation':
+            const updateRelationResult = await updateRelation({
+              sourceId: args.sourceId as string,
+              targetId: args.targetId as string | undefined,
+              targetIds: args.targetIds as string[] | undefined,
+              relationType: args.relationType as string,
+              direction: args.direction as 'outgoing' | 'incoming' | undefined,
+              set: args.set as Record<string, unknown> | undefined,
+              unset: args.unset as string[] | undefined,
+              types: args.types as Record<string, 'string' | 'number' | 'boolean' | 'datetime'> | undefined
+            })
+            return toolResult(updateRelationResult, updateRelationResult.message)
 
           case 'findRelationships':
             const relations = await findRelationships({

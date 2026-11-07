@@ -37,7 +37,7 @@ TOOL MAP (exact names — never invent alternatives)
 - getRecord / getRecordsByIds / findOneRecord / findUniqRecord — single-record lookups.
 - createRecord / updateRecord / setRecord / deleteRecord / deleteRecordById — single-record mutations.
 - bulkCreateRecords — batch insert.
-- attachRelation / detachRelation — relationship mutations.
+- attachRelation / updateRelation / detachRelation — relationship mutations (updateRelation changes properties on existing relationships: set / unset; types: { name: 'datetime' } stores an ISO string as a datetime).
 - listRelationshipPatterns / analyzeRelationshipPatterns — inspect or generate schema-derived relationship suggestions.
 - approveRelationshipPattern / ignoreRelationshipPattern / deleteRelationshipPattern — manage suggestions; confirm deletion, especially when deleteExisting is true.
 - findPropertyById / deleteProperty — property management.
