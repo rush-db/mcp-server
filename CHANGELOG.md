@@ -1,5 +1,11 @@
 # @rushdb/mcp-server
 
+## 3.3.1
+
+### Patch Changes
+
+- 8153820: Fix OAuth sign-in through the hosted server: the OAuth proxy no longer forwards the upstream `content-encoding` header on a body it has already decompressed, so clients can read the token response.
+
 ## 3.3.0
 
 ### Minor Changes
