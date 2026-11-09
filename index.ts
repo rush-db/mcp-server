@@ -974,7 +974,9 @@ if (mcpTransport === 'http') {
       const lower = k.toLowerCase()
       // Strip content-length: rewriteUpstream changes body size; let the runtime recompute it.
       // Strip transfer-encoding: chunked encoding from upstream must not propagate.
-      if (lower === 'content-length' || lower === 'transfer-encoding') return
+      // Strip content-encoding: fetch has already decompressed the body, so forwarding
+      // e.g. `gzip` makes clients try to decompress plain JSON (the token response breaks).
+      if (lower === 'content-length' || lower === 'transfer-encoding' || lower === 'content-encoding') return
       headers[k] = lower === 'location' ? rewriteUpstream(v) : v
     })
     return new Response(responseText || null, { status: upstreamRes.status, headers })
