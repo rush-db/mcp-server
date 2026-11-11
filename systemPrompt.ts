@@ -14,7 +14,7 @@ LIMITS
 • "How many X?" → read total directly from the findRecords response ({ data:[...], total:N }). Do NOT use a $count select for simple counts.
 • For self-group and dimensional groupBy: omit limit (unless asking for "top N").
 • labels contains root records only. Put related labels inside where traversal blocks, not beside the root in labels.
-• groupBy never accepts alias-only values such as "$record" or "$related"; use "$record.name" / "$related.status" or a select key.
+• groupBy never accepts alias-only values such as "$record" or "$related"; use a root field such as "$record.status" or a select key. Grouping by a related record's field ("$alias.field") is not supported yet and puts every row under "__missing__".
 • Default to $contains on the label's display property resolved from schema discovery (often name or title — never assume one exists) for any user-typed named reference, on root and related labels alike; use exact equality only for IDs or explicit exact-match requests, and confirm canonical values via discovery rather than guessing.
 • Related-count rankings keep the requested parent/entity as root: most/more/highest → order count desc; least/less/fewer/fewest/lowest → order count asc.
 

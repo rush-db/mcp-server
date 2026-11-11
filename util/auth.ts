@@ -160,18 +160,28 @@ const FULL_API_KEY_SCOPES = ['records:read', 'records:write']
 /**
  * Resolves the scopes an opaque API key grants by asking the backend for the
  * key's access level (`GET /tokens/current`). Read-only keys map to
- * `records:read` so write tools are hidden from the tool list. Falls back to
- * full scopes when the endpoint is unavailable (older backend) — the backend
- * still rejects writes from read-only keys with 403 either way.
+ * `records:read` so write tools are hidden from the tool list. A key the
+ * backend rejects (401/403) throws `AuthError`, so a wrong key fails at start-up
+ * (stdio) or with a 401 (HTTP) instead of listing every tool. Falls back to
+ * full scopes when the endpoint is unavailable (older backend, network error):
+ * the backend still rejects writes from read-only keys with 403 either way.
  */
 export async function fetchApiKeyScopes(apiKey: string): Promise<string[]> {
+  let response: Response
   try {
-    const response = await fetch(`${RUSHDB_API_URL}/tokens/current`, {
+    response = await fetch(`${RUSHDB_API_URL}/tokens/current`, {
       headers: { Authorization: `Bearer ${apiKey}` }
     })
-    if (!response.ok) {
-      return FULL_API_KEY_SCOPES
-    }
+  } catch {
+    return FULL_API_KEY_SCOPES
+  }
+  if (response.status === 401 || response.status === 403) {
+    throw new AuthError('invalid_token', `the API key was rejected (${response.status})`)
+  }
+  if (!response.ok) {
+    return FULL_API_KEY_SCOPES
+  }
+  try {
     const json: any = await response.json()
     const level = json?.data?.level ?? json?.level
     return level === 'read' ? ['records:read'] : FULL_API_KEY_SCOPES
