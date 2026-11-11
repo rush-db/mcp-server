@@ -129,7 +129,7 @@ The agent calls `findRelationships` and `findRecords` with relationship filters 
 
 ## Available tools
 
-43 tools, named exactly as below. In direct mode the six RushDB Cloud tools are not listed. The full reference, with
+52 tools, named exactly as below. In direct mode the twelve RushDB Cloud tools are not listed. The full reference, with
 inputs and safety levels, is at [docs.rushdb.com/3.x/learn/reference/mcp/tools](https://docs.rushdb.com/3.x/learn/reference/mcp/tools).
 
 ### Discovery and properties
@@ -202,6 +202,20 @@ inputs and safety levels, is at [docs.rushdb.com/3.x/learn/reference/mcp/tools](
 | `approveRelationshipPattern` | Approve and apply a suggested pattern |
 | `ignoreRelationshipPattern` | Ignore a suggested pattern |
 | `deleteRelationshipPattern` | Delete a pattern and optionally its materialized relationships |
+
+### Connections and imports (RushDB Cloud only)
+
+Data synced from SaaS tools (CRM, billing, support, issue tracking, docs, spreadsheets) and background
+file imports. The agent checks freshness before answering about recent data and offers a sync rather
+than starting one unasked.
+
+| Tool | What it does |
+| --- | --- |
+| `listConnections` | The project's connections: status, schedule, last success and error, per-stream label, record count and last sync |
+| `getConnection` | One connection by id (credentials are never returned) |
+| `syncConnection` | Start a sync now, of every enabled stream or the ones named (`full` re-reads everything); returns the run. Writes |
+| `listImports` | Import runs (file imports and connection syncs), filterable by `kind` and `connectionId` |
+| `getImport` | One run's status, per-file or per-stream progress, error sample and summary |
 
 ### Utilities
 
