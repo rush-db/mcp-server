@@ -61,6 +61,11 @@ import { getJoinCandidates } from './tools/getJoinCandidates.js'
 import { findProperties } from './tools/findProperties.js'
 import { findPropertyById } from './tools/findPropertyById.js'
 import { deleteProperty } from './tools/deleteProperty.js'
+import { listConnections } from './tools/listConnections.js'
+import { getConnection } from './tools/getConnection.js'
+import { syncConnection } from './tools/syncConnection.js'
+import { listImports } from './tools/listImports.js'
+import { getImport } from './tools/getImport.js'
 import { getRecordsByIds } from './tools/getRecordsByIds.js'
 import { findEmbeddingIndexes } from './tools/findEmbeddingIndexes.js'
 import { createEmbeddingIndex } from './tools/createEmbeddingIndex.js'
@@ -116,7 +121,8 @@ function getActiveSystemPrompt(): string {
 ## This server runs against a standalone RushDB engine
 
 Only the tools this server lists are available. The RushDB Cloud features are not: natural-language
-search (smartSearch), relationship-pattern suggestions, and managed embeddings. Vector search takes a
+search (smartSearch), relationship-pattern suggestions, managed embeddings, and connections and
+file imports. Vector search takes a
 queryVector you supply (a text query needs managed embeddings), and only external embedding indexes
 can be created. Inside a transaction, creating, updating, deleting by id, attaching and importing
 records are staged; other writes do not accept a transaction. Explain that boundary plainly if the
@@ -543,6 +549,55 @@ function createMcpServer(): Server {
             return toolResult(
               { candidates: candidates ?? [] },
               candidates?.length ? JSON.stringify(candidates, null, 2) : 'No join candidates found.'
+            )
+          }
+
+          case 'listConnections': {
+            const connections = (await listConnections()) ?? []
+            return toolResult(
+              { connections },
+              connections.length ? JSON.stringify(connections, null, 2) : 'No connections in this project.'
+            )
+          }
+
+          case 'getConnection': {
+            const connection = await getConnection({ id: args.id as string })
+            return toolResult(
+              { connection: connection ?? null },
+              connection ? JSON.stringify(connection, null, 2) : 'Connection not found.'
+            )
+          }
+
+          case 'syncConnection': {
+            const run = await syncConnection({
+              id: args.id as string,
+              streams: args.streams as string[] | undefined,
+              full: args.full as boolean | undefined
+            })
+            return toolResult(
+              { run },
+              `Sync ${run.status} (run ${run.id}). Follow it with getImport.\n${JSON.stringify(run, null, 2)}`
+            )
+          }
+
+          case 'listImports': {
+            const runs = await listImports({
+              kind: args.kind as 'file' | 'sync' | undefined,
+              connectionId: args.connectionId as string | undefined,
+              limit: args.limit as number | undefined,
+              skip: args.skip as number | undefined
+            })
+            return toolResult(
+              runs,
+              runs.imports.length ? JSON.stringify(runs, null, 2) : 'No import runs found.'
+            )
+          }
+
+          case 'getImport': {
+            const run = await getImport({ id: args.id as string })
+            return toolResult(
+              { import: run ?? null },
+              run ? JSON.stringify(run, null, 2) : 'Import run not found.'
             )
           }
 

@@ -41,8 +41,16 @@ TOOL MAP (exact names — never invent alternatives)
 - listRelationshipPatterns / analyzeRelationshipPatterns — inspect or generate schema-derived relationship suggestions.
 - approveRelationshipPattern / ignoreRelationshipPattern / deleteRelationshipPattern — manage suggestions; confirm deletion, especially when deleteExisting is true.
 - findPropertyById / deleteProperty — property management.
+- listConnections / getConnection — where synced data comes from (CRM, billing, support, issue tracking, docs, spreadsheets) and how fresh it is: per-stream label, record count, lastSyncedAt; connection lastSuccessAt, lastError, status, schedule.
+- syncConnection — refresh a connection now (every enabled stream, or named streams). Writes to the project: only when the user asks for fresh data or lastSuccessAt is too old for the question; never full: true unless asked. Follow the returned run with getImport.
+- listImports / getImport — import runs (file imports and connection syncs): status, records written/deleted, errors, summary.
 - helpAddToClient — setup instructions for adding this server to an MCP client.
 - getQueryBuilderPrompt — returns this system prompt (fallback for clients without Prompts API).
+
+SYNCED DATA FRESHNESS
+  When an answer depends on recent data ("today", "latest", "current") and the label comes from a connection, check listConnections:
+  state the stream's lastSyncedAt in the answer when it is old, or if the connection is paused, needs_reauth or has lastError.
+  Offer syncConnection rather than calling it unasked; after a sync, poll getImport until status is completed, partial, failed or cancelled, then query.
 
 --------------------------------------------------
 MANDATORY WORKFLOW
