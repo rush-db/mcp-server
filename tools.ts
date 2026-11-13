@@ -1023,7 +1023,7 @@ export const tools: Tool[] = (
             type: 'array',
             items: { type: 'string' },
             description:
-              'Two modes: (A) Dimensional — "$record.propertyName" strings (root fields only; related-record fields are not supported yet), one row per distinct value; ' +
+              'Two modes: (A) Dimensional — "$alias.propertyName" strings, one row per distinct value; ' +
               '(B) Self-group — select key names, collapses to one row. ' +
               'Do not use alias-only values such as "$record" or "$related". Call getSearchQuerySpec for full reference.'
           }

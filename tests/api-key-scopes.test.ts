@@ -5,7 +5,9 @@ const respond = (status: number, body: unknown = {}) =>
   vi.fn(async () => new Response(JSON.stringify(body), { status }))
 
 describe('fetchApiKeyScopes', () => {
-  afterEach(() => vi.unstubAllGlobals())
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
 
   it('maps a read-only key to records:read', async () => {
     vi.stubGlobal('fetch', respond(200, { data: { level: 'read' } }))

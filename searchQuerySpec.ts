@@ -390,11 +390,10 @@ TIMEBUCKET:
 groupBy is valid only with select.
 
 Do not use alias-only values in groupBy. "$record" and "$related" are invalid because
-grouped rows need a concrete dimension field. Use a root field such as "$record.status",
-or a select output key such as "totalBudget". Grouping by a related record's field
-("$related.status", "$alias.field") is not supported yet: every row lands in "__missing__".
+grouped rows need a concrete dimension field. Use "$record.name", "$related.status",
+or a select output key such as "totalBudget".
 
-MODE A — DIMENSIONAL (one row per distinct value of a root field, "$record.propertyName"):
+MODE A — DIMENSIONAL (one row per distinct value — "$alias.propertyName" format):
   select: { count: { $count: "*" }, avg: { $avg: "$record.total", $precision: 2 } },
   groupBy: ['$record.status'],
   orderBy: { count: 'desc' }
