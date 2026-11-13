@@ -106,6 +106,12 @@ function toolResult<T extends Record<string, unknown>>(structuredContent: T, tex
   }
 }
 
+// Tool execution failures are results with `isError: true` (MCP spec), so the
+// client and the model can tell a failed call from an empty one.
+function toolError(text: string) {
+  return { ...toolResult({ error: text }, text), isError: true }
+}
+
 // Scopes for STDIO mode (RUSHDB_API_KEY env), resolved once at startup.
 // HTTP mode carries per-request scopes via requestContext instead.
 let stdioScopes: string[] = ['records:read', 'records:write']
@@ -825,18 +831,25 @@ function createMcpServer(): Server {
           const text = unreachable
             ? `Could not reach the RushDB engine at ${process.env.RUSHDB_ENGINE_URL ?? '(RUSHDB_ENGINE_URL unset)'}: ${message}`
             : message
-          return toolResult({ error: text }, text)
+          return toolError(text)
         }
-      } else if (
-        message.includes('RUSHDB_API_KEY') ||
-        message.includes('Invalid URL') ||
-        message.includes('Failed to fetch') ||
-        message.includes('Network error') ||
-        !process.env.RUSHDB_API_KEY
-      ) {
-        const text =
-          "It seems like you haven't configured your RushDB credentials. Would you like me to open the RushDB dashboard for you so you can sign up and get your credentials?"
-        return toolResult({ error: text }, text)
+      } else {
+        // HTTP mode authenticates every request and carries its credentials in
+        // the request context; only stdio reads RUSHDB_API_KEY from the env.
+        const hasCredentials = Boolean(requestContext.getStore() || process.env.RUSHDB_API_KEY)
+        if (!hasCredentials || message.includes('RUSHDB_API_KEY')) {
+          return toolError(
+            "It seems like you haven't configured your RushDB credentials. Would you like me to open the RushDB dashboard for you so you can sign up and get your credentials?"
+          )
+        }
+        if (
+          message.includes('Invalid URL') ||
+          message.includes('Failed to fetch') ||
+          message.includes('Network error') ||
+          message.includes('ECONNREFUSED')
+        ) {
+          return toolError(`Could not reach the RushDB API: ${message}`)
+        }
       }
 
       // Map raw HTTP status codes from the SDK fetcher into actionable messages
@@ -869,11 +882,11 @@ function createMcpServer(): Server {
         } else {
           hint = `HTTP error ${status} from RushDB API.`
         }
-        return toolResult({ error: hint }, hint)
+        return toolError(hint)
       }
 
       // Generic error fallback
-      return toolResult({ error: message }, `Error: ${message}`)
+      return toolError(`Error: ${message}`)
     }
   })
 
@@ -1208,7 +1221,14 @@ if (mcpTransport === 'http') {
   // ── STDIO mode (default) ──
   // Resolve the API key's access level up front so read-only keys hide write tools.
   if (process.env.RUSHDB_API_KEY && !isDirectMode()) {
-    stdioScopes = await fetchApiKeyScopes(process.env.RUSHDB_API_KEY)
+    try {
+      stdioScopes = await fetchApiKeyScopes(process.env.RUSHDB_API_KEY)
+    } catch (error) {
+      process.stderr.write(
+        `RushDB MCP server: ${error instanceof Error ? error.message : String(error)}. Check RUSHDB_API_KEY.\n`
+      )
+      process.exit(1)
+    }
   }
   const server = createMcpServer()
   const transport = new StdioServerTransport()
