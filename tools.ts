@@ -64,6 +64,11 @@ export type ToolName =
   | 'getSchemaSummary'
   | 'resolveNames'
   | 'getJoinCandidates'
+  | 'listConnections'
+  | 'getConnection'
+  | 'syncConnection'
+  | 'listImports'
+  | 'getImport'
 
 /**
  * The SDK methods each tool calls. A tool built on a RushDB Cloud method (the
@@ -118,7 +123,12 @@ export const TOOL_SDK_METHODS: Record<ToolName, string[]> = {
   searchValues: ['ai.searchValues'],
   getSchemaSummary: ['ai.getSchemaSummary'],
   resolveNames: ['ai.resolveNames'],
-  getJoinCandidates: ['ai.getJoinCandidates']
+  getJoinCandidates: ['ai.getJoinCandidates'],
+  listConnections: ['connections.list'],
+  getConnection: ['connections.get'],
+  syncConnection: ['connections.sync'],
+  listImports: ['imports.list'],
+  getImport: ['imports.get']
 }
 
 /** Tools offered in direct mode (against a standalone engine). */
@@ -178,6 +188,52 @@ const RECORD_SCHEMA: Schema = {
 }
 
 const NULLABLE_RECORD_SCHEMA: Schema = { anyOf: [RECORD_SCHEMA, { type: 'null' }] }
+
+const CONNECTION_SCHEMA: Schema = {
+  type: 'object',
+  description: 'A connection to a SaaS tool, custom API or webhook. Credentials are never included.',
+  properties: {
+    id: { type: 'string' },
+    name: { type: 'string' },
+    connectorId: { type: 'string' },
+    connectorName: { type: 'string' },
+    status: { type: 'string', enum: ['draft', 'ready', 'paused', 'needs_reauth'] },
+    mode: { type: 'string' },
+    scheduleMinutes: { type: ['number', 'null'] },
+    nextRunAt: { type: ['string', 'null'] },
+    lastRunAt: { type: ['string', 'null'] },
+    lastSuccessAt: { type: ['string', 'null'] },
+    lastWebhookAt: { type: ['string', 'null'] },
+    lastError: { type: ['string', 'null'] },
+    activeRunId: { type: ['string', 'null'] },
+    streams: { type: 'array', items: { type: 'object', additionalProperties: true } }
+  },
+  additionalProperties: true
+}
+
+const IMPORT_RUN_SCHEMA: Schema = {
+  type: 'object',
+  description: 'An import run: a file import (kind "file") or a connection sync (kind "sync").',
+  properties: {
+    id: { type: 'string' },
+    kind: { type: 'string', enum: ['file', 'sync'] },
+    trigger: { type: 'string' },
+    status: { type: 'string' },
+    name: { type: ['string', 'null'] },
+    connectionId: { type: ['string', 'null'] },
+    recordsWritten: { type: 'number' },
+    recordsDeleted: { type: 'number' },
+    linksCreated: { type: 'number' },
+    errorCount: { type: 'number' },
+    progress: { type: 'object', additionalProperties: true },
+    errorSample: { type: 'array', items: { type: 'object', additionalProperties: true } },
+    summary: { anyOf: [{ type: 'object', additionalProperties: true }, { type: 'null' }] },
+    error: { type: ['string', 'null'] },
+    startedAt: { type: ['string', 'null'] },
+    finishedAt: { type: ['string', 'null'] }
+  },
+  additionalProperties: true
+}
 
 const PROPERTY_SCHEMA: Schema = {
   type: 'object',
@@ -689,6 +745,36 @@ const outputSchemas = {
     type: 'object',
     properties: { candidates: { type: 'array', items: { type: 'object', additionalProperties: true } } },
     required: ['candidates'],
+    additionalProperties: false
+  },
+  listConnections: {
+    type: 'object',
+    properties: { connections: { type: 'array', items: CONNECTION_SCHEMA } },
+    required: ['connections'],
+    additionalProperties: false
+  },
+  getConnection: {
+    type: 'object',
+    properties: { connection: { anyOf: [CONNECTION_SCHEMA, { type: 'null' }] } },
+    required: ['connection'],
+    additionalProperties: false
+  },
+  syncConnection: {
+    type: 'object',
+    properties: { run: IMPORT_RUN_SCHEMA },
+    required: ['run'],
+    additionalProperties: false
+  },
+  listImports: {
+    type: 'object',
+    properties: { imports: { type: 'array', items: IMPORT_RUN_SCHEMA }, total: { type: 'number' } },
+    required: ['imports', 'total'],
+    additionalProperties: false
+  },
+  getImport: {
+    type: 'object',
+    properties: { import: { anyOf: [IMPORT_RUN_SCHEMA, { type: 'null' }] } },
+    required: ['import'],
     additionalProperties: false
   }
 } satisfies Record<ToolName, Schema>
@@ -1972,6 +2058,83 @@ export const tools: Tool[] = (
           skip: { type: 'number', description: 'Number of results to skip for pagination (default 0).' }
         },
         required: ['propertyName', 'labels']
+      }
+    },
+    {
+      name: 'listConnections',
+      annotations: READ_ONLY,
+      securitySchemes: READ_SCHEMES,
+      description:
+        'List the project\'s connections to SaaS tools (CRM, billing, support, issue tracking, docs, spreadsheets), custom APIs and webhooks. ' +
+        'Each has its status (ready, paused, needs_reauth), mode and schedule, lastSuccessAt, lastError, the running sync (activeRunId) and per-stream label, record count and lastSyncedAt. ' +
+        'Use it to tell where a label\'s records come from and how fresh they are before answering questions about recent data.',
+      inputSchema: { type: 'object', properties: {}, required: [] }
+    },
+    {
+      name: 'getConnection',
+      annotations: READ_ONLY,
+      securitySchemes: READ_SCHEMES,
+      description:
+        'One connection by id (from listConnections): status, schedule (nextRunAt), last run and success, last error, and per-stream record counts and lastSyncedAt. ' +
+        'Credentials are never returned.',
+      inputSchema: {
+        type: 'object',
+        properties: { id: { type: 'string', description: 'Connection id from listConnections.' } },
+        required: ['id']
+      }
+    },
+    {
+      name: 'syncConnection',
+      annotations: WRITE,
+      securitySchemes: WRITE_SCHEMES,
+      description:
+        'Start a sync of a connection now, to refresh its data: every enabled stream, or the streams named. ' +
+        'Returns the queued import run; follow it with getImport until its status is completed, partial, failed or cancelled. ' +
+        'Only when the user asks for fresh data or the connection\'s lastSuccessAt is too old for the question; a sync writes to the project. ' +
+        'full: true re-reads everything from the start (slow; only when asked or when incremental data looks wrong). If a sync is already queued or running, that run is returned instead of a new one. Push (webhook) connections cannot be synced.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Connection id from listConnections.' },
+          streams: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Stream names to sync (e.g. ["contacts"]); omit for every enabled stream.'
+          },
+          full: { type: 'boolean', description: 'Ignore stored cursors and read everything again.' }
+        },
+        required: ['id']
+      }
+    },
+    {
+      name: 'listImports',
+      annotations: READ_ONLY,
+      securitySchemes: READ_SCHEMES,
+      description:
+        'List import runs, newest first: background file imports (kind "file") and connection syncs (kind "sync"), with status, records written and deleted, links created, errors and timing. ' +
+        'Filter by kind or connectionId to see the sync history of one connection.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          kind: { type: 'string', enum: ['file', 'sync'], description: 'Only file imports or only connection syncs.' },
+          connectionId: { type: 'string', description: 'Only the syncs of this connection.' },
+          limit: { type: 'number', description: 'Runs to return, 1–100 (default 20).' },
+          skip: { type: 'number', description: 'Runs to skip for pagination.' }
+        },
+        required: []
+      }
+    },
+    {
+      name: 'getImport',
+      annotations: READ_ONLY,
+      securitySchemes: READ_SCHEMES,
+      description:
+        'One import run by id (a file import or a connection sync, e.g. the run syncConnection returned): status (queued, running, paused_billing, completed, partial, failed, cancelled), ' +
+        'progress per file or stream, error sample, and once finished a summary (labels written, relationship suggestions pending review).',
+      inputSchema: {
+        type: 'object',
+        properties: { id: { type: 'string', description: 'Import run id.' } },
+        required: ['id']
       }
     },
     {

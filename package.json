@@ -20,7 +20,7 @@
     "agent-memory"
   ],
   "license": "Apache-2.0",
-  "version": "3.3.1",
+  "version": "3.4.0",
   "type": "module",
   "main": "./build/index.js",
   "bin": {
@@ -43,7 +43,7 @@
     "release": "pnpm build && changeset publish"
   },
   "dependencies": {
-    "@rushdb/javascript-sdk": "^3.3.0",
+    "@rushdb/javascript-sdk": "^3.4.0",
     "@modelcontextprotocol/sdk": "1.27.1",
     "@hono/node-server": "1.19.13",
     "dotenv": "^16.4.7",
