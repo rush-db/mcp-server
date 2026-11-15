@@ -2148,7 +2148,8 @@ export const tools: Tool[] = (
     {
       name: 'syncConnection',
       title: 'Sync connection',
-      annotations: DESTROY,
+      // Pulls data from the connected external source.
+      annotations: { ...DESTROY, openWorldHint: true },
       securitySchemes: WRITE_SCHEMES,
       description:
         'Start a sync of a connection now, to refresh its data: every enabled stream, or the streams named. ' +
