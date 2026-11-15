@@ -50,7 +50,7 @@ describe('connection and import tools', () => {
       expect(byName[name].annotations, name).toMatchObject({ readOnlyHint: true, destructiveHint: false })
       expect(DIRECT_ENGINE_TOOL_NAMES.has(name), name).toBe(false)
     }
-    expect(byName.syncConnection.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true })
+    expect(byName.syncConnection.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true, openWorldHint: true })
     expect(byName.syncConnection.securitySchemes).toEqual([{ type: 'oauth2', scopes: ['records:write'] }])
     expect(DIRECT_ENGINE_TOOL_NAMES.has('syncConnection')).toBe(false)
   })

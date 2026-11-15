@@ -33,6 +33,20 @@ describe('tool annotations', () => {
     expect(new Set(destructive)).toEqual(DESTRUCTIVE)
   })
 
+  it('marks only syncConnection as open-world', () => {
+    expect(tools.filter((tool) => tool.annotations.openWorldHint).map((tool) => tool.name)).toEqual([
+      'syncConnection'
+    ])
+  })
+
+  it('keeps the create tools non-destructive and documents their upsert behavior', () => {
+    for (const name of ['createRecord', 'bulkCreateRecords']) {
+      const tool = tools.find((tool) => tool.name === name)!
+      expect(tool.annotations.destructiveHint, name).toBe(false)
+      expect(tool.description, name).toMatch(/changed in place/)
+    }
+  })
+
   it('keeps read-only tools non-destructive and idempotent', () => {
     for (const tool of tools.filter((tool) => tool.annotations.readOnlyHint)) {
       expect(tool.annotations.destructiveHint, tool.name).toBe(false)
