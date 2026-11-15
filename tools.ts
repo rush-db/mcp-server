@@ -786,15 +786,28 @@ const READ_SCHEMES: SecurityScheme[] = [{ type: 'oauth2', scopes: ['records:read
 const WRITE_SCHEMES: SecurityScheme[] = [{ type: 'oauth2', scopes: ['records:write'] }]
 
 /**
+ * Granted scopes plus the ones they imply: records:write includes records:read,
+ * as on the REST API, where a write-level key passes every read route.
+ */
+export function impliedScopes(scopes: string[]): string[] {
+  if (scopes.includes('records:write') && !scopes.includes('records:read')) {
+    return [...scopes, 'records:read']
+  }
+  return scopes
+}
+
+/**
  * Whether a tool is callable with the given granted scopes.
  * Security schemes are alternatives: the tool is allowed if any scheme is
- * satisfied (noauth always is; oauth2 requires all of its scopes granted).
+ * satisfied (noauth always is; oauth2 requires all of its scopes granted,
+ * after impliedScopes, so records:write also allows the read tools).
  * Untagged tools are allowed — the backend enforces authorization regardless.
  */
 export function isToolAllowedForScopes(tool: Tool, scopes: string[]): boolean {
   const schemes = tool.securitySchemes
   if (!schemes || schemes.length === 0) return true
-  return schemes.some((s) => s.type === 'noauth' || s.scopes.every((scope) => scopes.includes(scope)))
+  const granted = impliedScopes(scopes)
+  return schemes.some((s) => s.type === 'noauth' || s.scopes.every((scope) => granted.includes(scope)))
 }
 
 export const tools: Tool[] = (
