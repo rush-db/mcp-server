@@ -266,6 +266,7 @@ For standalone direct mode, use these instead:
 - `mcp.yaml` at the repo root enables autodiscovery by MCP registries
 - `glama.json` at the repo root contains Glama metadata
 - Package: `@rushdb/mcp-server`, command: `npx`
+- The OpenAI plugin directory listing (ChatGPT and Codex), including its review test cases (`extensions.com.openai.review`), lives in [rush-db/agent-plugins](https://github.com/rush-db/agent-plugins)
 
 ---
 
