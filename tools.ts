@@ -168,6 +168,7 @@ type Tool = {
   outputSchema: Schema
   annotations: ToolAnnotations
   securitySchemes?: SecurityScheme[]
+  _meta?: { securitySchemes?: SecurityScheme[] }
 }
 
 // Shared annotation presets
@@ -779,9 +780,9 @@ const outputSchemas = {
   }
 } satisfies Record<ToolName, Schema>
 
-// Read-only tools advertise both noauth and oauth2 so ChatGPT can call them
-// anonymously and also offer linking for user-specific data.
-const READ_SCHEMES: SecurityScheme[] = [{ type: 'noauth' }, { type: 'oauth2', scopes: ['records:read'] }]
+// Every call needs a bearer token (POST /mcp returns 401 without one), so no
+// tool advertises noauth.
+const READ_SCHEMES: SecurityScheme[] = [{ type: 'oauth2', scopes: ['records:read'] }]
 const WRITE_SCHEMES: SecurityScheme[] = [{ type: 'oauth2', scopes: ['records:write'] }]
 
 /**
@@ -2160,4 +2161,9 @@ export const tools: Tool[] = (
       }
     }
   ] as const satisfies Array<Omit<Tool, 'outputSchema'>>
-).map((tool) => ({ ...tool, outputSchema: outputSchemas[tool.name] }))
+).map((tool) => ({
+  ...tool,
+  outputSchema: outputSchemas[tool.name],
+  // Mirrored in _meta for clients that read securitySchemes from there (Apps SDK).
+  _meta: { securitySchemes: tool.securitySchemes }
+}))
