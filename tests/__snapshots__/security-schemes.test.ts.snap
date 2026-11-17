@@ -1,0 +1,1119 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`tool security schemes > match the tools/list snapshot 1`] = `
+[
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "getSchemaMarkdown",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "getSchema",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "findLabels",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:write",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "createRecord",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:write",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:write",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "updateRecord",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:write",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:write",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "deleteRecord",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:write",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "findRecords",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "getRecord",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "getRecordsByIds",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:write",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "attachRelation",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:write",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:write",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "updateRelation",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:write",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:write",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "detachRelation",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:write",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "findRelationships",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "listRelationshipPatterns",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:write",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "analyzeRelationshipPatterns",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:write",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:write",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "approveRelationshipPattern",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:write",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:write",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "ignoreRelationshipPattern",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:write",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:write",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "deleteRelationshipPattern",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:write",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:write",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "bulkCreateRecords",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:write",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:write",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "bulkDeleteRecords",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:write",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "exportRecords",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "helpAddToClient",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "getQueryBuilderPrompt",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "getSearchQuerySpec",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:write",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "setRecord",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:write",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "findOneRecord",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "findUniqRecord",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:write",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "deleteRecordById",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:write",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "propertyValues",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "searchValues",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "getSchemaSummary",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "resolveNames",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "getJoinCandidates",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "findProperties",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "findPropertyById",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:write",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "deleteProperty",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:write",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "findEmbeddingIndexes",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:write",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "createEmbeddingIndex",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:write",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:write",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "upsertEmbeddingVectors",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:write",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:write",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "deleteEmbeddingIndex",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:write",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "getEmbeddingIndexStats",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "vectorSearch",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "listTextIndexes",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:write",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "createTextIndex",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:write",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:write",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "deleteTextIndex",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:write",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "textSearch",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "semanticSearch",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "listConnections",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "getConnection",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:write",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "syncConnection",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:write",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "listImports",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "getImport",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "smartSearch",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+]
+`;

@@ -86,6 +86,7 @@ import SYSTEM_PROMPT from './systemPrompt.js'
 import { getSearchQuerySpec } from './tools/getSearchQuerySpec.js'
 import { isDirectMode, requestContext, RequestContext } from './util/db.js'
 import { fetchApiKeyScopes, resolveRequestContext, makeMcpAuthError } from './util/auth.js'
+import { registerWellKnownRoutes } from './util/wellKnown.js'
 
 type TextContent = {
   type: string
@@ -1077,8 +1078,9 @@ if (mcpTransport === 'http') {
   // Proxy OAuth endpoints (authorize / token / JWKS / register / etc.)
   httpApp.all('/oauth/*', proxyOAuthEndpoint)
   httpApp.get('/api/v1/dashboard/mcp-oauth/*', proxyOAuthEndpoint)
-  // Proxy /.well-known/* paths not handled above (e.g. jwks.json) directly to platform/core
-  httpApp.get('/.well-known/*', proxyOAuthEndpoint)
+  // OpenAI domain verification challenge, then proxy /.well-known/* paths not handled
+  // above (e.g. jwks.json) directly to platform/core
+  registerWellKnownRoutes(httpApp, proxyOAuthEndpoint)
 
   // Protected resource metadata — all path variants ChatGPT probes.
   // Points authorization_servers at *this* server so ChatGPT follows the proxy routes.
@@ -1096,11 +1098,6 @@ if (mcpTransport === 'http') {
   ]) {
     httpApp.get(path, (c) => c.json(protectedResourceDoc))
   }
-
-  // OpenAI domain verification challenge
-  httpApp.get('/.well-known/openai-apps-challenge', (c) =>
-    c.text('ryakzvxhOuUz_i_9ehoMOp-utTItOQZopqyeLlxPTwI')
-  )
 
   // MCP Streamable HTTP endpoint
   httpApp.post('/mcp', async (c) => {

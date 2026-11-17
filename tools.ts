@@ -159,21 +159,33 @@ type ToolAnnotations = {
   openWorldHint: boolean
   /** True for tools that can delete, overwrite, or have irreversible side effects. */
   destructiveHint: boolean
+  /** True when repeating a call with the same arguments has no further effect. */
+  idempotentHint?: boolean
 }
 
 type Tool = {
   name: ToolName
+  title: string
   description: string
   inputSchema: Schema
   outputSchema: Schema
   annotations: ToolAnnotations
   securitySchemes?: SecurityScheme[]
+  _meta?: { securitySchemes?: SecurityScheme[] }
 }
 
 // Shared annotation presets
-const READ_ONLY: ToolAnnotations = { readOnlyHint: true, openWorldHint: false, destructiveHint: false }
+// Overwriting existing data (update, set, upsert, re-sync) counts as destructive.
+const READ_ONLY: ToolAnnotations = {
+  readOnlyHint: true,
+  openWorldHint: false,
+  destructiveHint: false,
+  idempotentHint: true
+}
 const WRITE: ToolAnnotations = { readOnlyHint: false, openWorldHint: false, destructiveHint: false }
+const IDEMPOTENT_WRITE: ToolAnnotations = { ...WRITE, idempotentHint: true }
 const DESTROY: ToolAnnotations = { readOnlyHint: false, openWorldHint: false, destructiveHint: true }
+const IDEMPOTENT_DESTROY: ToolAnnotations = { ...DESTROY, idempotentHint: true }
 
 const RECORD_SCHEMA: Schema = {
   type: 'object',
@@ -779,27 +791,41 @@ const outputSchemas = {
   }
 } satisfies Record<ToolName, Schema>
 
-// Read-only tools advertise both noauth and oauth2 so ChatGPT can call them
-// anonymously and also offer linking for user-specific data.
-const READ_SCHEMES: SecurityScheme[] = [{ type: 'noauth' }, { type: 'oauth2', scopes: ['records:read'] }]
+// Every call needs a bearer token (POST /mcp returns 401 without one), so no
+// tool advertises noauth.
+const READ_SCHEMES: SecurityScheme[] = [{ type: 'oauth2', scopes: ['records:read'] }]
 const WRITE_SCHEMES: SecurityScheme[] = [{ type: 'oauth2', scopes: ['records:write'] }]
+
+/**
+ * Granted scopes plus the ones they imply: records:write includes records:read,
+ * as on the REST API, where a write-level key passes every read route.
+ */
+export function impliedScopes(scopes: string[]): string[] {
+  if (scopes.includes('records:write') && !scopes.includes('records:read')) {
+    return [...scopes, 'records:read']
+  }
+  return scopes
+}
 
 /**
  * Whether a tool is callable with the given granted scopes.
  * Security schemes are alternatives: the tool is allowed if any scheme is
- * satisfied (noauth always is; oauth2 requires all of its scopes granted).
+ * satisfied (noauth always is; oauth2 requires all of its scopes granted,
+ * after impliedScopes, so records:write also allows the read tools).
  * Untagged tools are allowed — the backend enforces authorization regardless.
  */
 export function isToolAllowedForScopes(tool: Tool, scopes: string[]): boolean {
   const schemes = tool.securitySchemes
   if (!schemes || schemes.length === 0) return true
-  return schemes.some((s) => s.type === 'noauth' || s.scopes.every((scope) => scopes.includes(scope)))
+  const granted = impliedScopes(scopes)
+  return schemes.some((s) => s.type === 'noauth' || s.scopes.every((scope) => granted.includes(scope)))
 }
 
 export const tools: Tool[] = (
   [
     {
       name: 'getSchemaMarkdown',
+      title: 'Get schema (Markdown)',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -833,6 +859,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'getSchema',
+      title: 'Get schema',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -866,6 +893,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'findLabels',
+      title: 'Find labels',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -897,12 +925,14 @@ export const tools: Tool[] = (
     },
     {
       name: 'createRecord',
+      title: 'Create record',
       annotations: WRITE,
       securitySchemes: WRITE_SCHEMES,
       description:
         'Create a new record. ' +
         'Use the exact label casing returned by findLabels. ' +
-        'Set mergeStrategy + mergeBy in options to enable upsert semantics (merge existing vs. replace).',
+        'Set mergeStrategy + mergeBy in options to enable upsert semantics (merge existing vs. replace). ' +
+        'With them, a matching existing record is changed in place: "append" overwrites the given fields, "rewrite" also deletes the fields not given.',
 
       inputSchema: {
         type: 'object',
@@ -935,7 +965,8 @@ export const tools: Tool[] = (
     },
     {
       name: 'updateRecord',
-      annotations: WRITE,
+      title: 'Update record',
+      annotations: IDEMPOTENT_DESTROY,
       securitySchemes: WRITE_SCHEMES,
       description:
         'Partially update a record — only fields present in data are changed; all other existing fields are preserved. ' +
@@ -955,7 +986,8 @@ export const tools: Tool[] = (
     },
     {
       name: 'deleteRecord',
-      annotations: DESTROY,
+      title: 'Delete record',
+      annotations: IDEMPOTENT_DESTROY,
       securitySchemes: WRITE_SCHEMES,
       description:
         'Delete a single record by ID. Irreversible. ' +
@@ -972,6 +1004,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'findRecords',
+      title: 'Find records',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -1033,6 +1066,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'getRecord',
+      title: 'Get record',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -1046,6 +1080,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'getRecordsByIds',
+      title: 'Get records by IDs',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -1065,6 +1100,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'attachRelation',
+      title: 'Attach relationship',
       annotations: WRITE,
       securitySchemes: WRITE_SCHEMES,
       description:
@@ -1107,7 +1143,8 @@ export const tools: Tool[] = (
     },
     {
       name: 'updateRelation',
-      annotations: WRITE,
+      title: 'Update relationships',
+      annotations: IDEMPOTENT_DESTROY,
       securitySchemes: WRITE_SCHEMES,
       description:
         'Change the properties of existing relationships of one type between a record and target records: ' +
@@ -1159,7 +1196,8 @@ export const tools: Tool[] = (
     },
     {
       name: 'detachRelation',
-      annotations: DESTROY,
+      title: 'Detach relationships',
+      annotations: IDEMPOTENT_DESTROY,
       securitySchemes: WRITE_SCHEMES,
       description:
         'Remove the relationships between a record and target records. ' +
@@ -1196,6 +1234,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'findRelationships',
+      title: 'Find relationships',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -1243,6 +1282,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'listRelationshipPatterns',
+      title: 'List relationship patterns',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -1253,6 +1293,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'analyzeRelationshipPatterns',
+      title: 'Analyze relationship patterns',
       annotations: WRITE,
       securitySchemes: WRITE_SCHEMES,
       description:
@@ -1262,6 +1303,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'approveRelationshipPattern',
+      title: 'Approve relationship pattern',
       annotations: WRITE,
       securitySchemes: WRITE_SCHEMES,
       description:
@@ -1277,7 +1319,8 @@ export const tools: Tool[] = (
     },
     {
       name: 'ignoreRelationshipPattern',
-      annotations: WRITE,
+      title: 'Ignore relationship pattern',
+      annotations: IDEMPOTENT_WRITE,
       securitySchemes: WRITE_SCHEMES,
       description:
         'Ignore a suggested relationship pattern without applying it. ' +
@@ -1292,7 +1335,8 @@ export const tools: Tool[] = (
     },
     {
       name: 'deleteRelationshipPattern',
-      annotations: DESTROY,
+      title: 'Delete relationship pattern',
+      annotations: IDEMPOTENT_DESTROY,
       securitySchemes: WRITE_SCHEMES,
       description:
         'Delete a saved relationship pattern. Irreversible. Confirm with the user before calling. ' +
@@ -1311,11 +1355,13 @@ export const tools: Tool[] = (
     },
     {
       name: 'bulkCreateRecords',
+      title: 'Create records in bulk',
       annotations: WRITE,
       securitySchemes: WRITE_SCHEMES,
       description:
         'Insert multiple records of the same label in one call. ' +
         'Set mergeStrategy ("append" to keep existing unspecified fields, "rewrite" to replace) and mergeBy (fields to match on) in options to enable upsert semantics. ' +
+        'With them, matching existing records are changed in place and the given fields are overwritten. ' +
         'Use the exact label casing returned by findLabels.',
 
       inputSchema: {
@@ -1358,6 +1404,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'bulkDeleteRecords',
+      title: 'Delete records in bulk',
       annotations: DESTROY,
       securitySchemes: WRITE_SCHEMES,
       description:
@@ -1376,6 +1423,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'exportRecords',
+      title: 'Export records to CSV',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -1401,6 +1449,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'helpAddToClient',
+      title: 'Help adding RushDB to a client',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description: 'Help the user add the RushDB MCP server to their MCP client',
@@ -1408,6 +1457,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'getQueryBuilderPrompt',
+      title: 'Get query builder prompt',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -1416,6 +1466,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'getSearchQuerySpec',
+      title: 'Get search query spec',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -1431,7 +1482,8 @@ export const tools: Tool[] = (
     },
     {
       name: 'setRecord',
-      annotations: DESTROY,
+      title: 'Replace record',
+      annotations: IDEMPOTENT_DESTROY,
       securitySchemes: WRITE_SCHEMES,
       description:
         'Replace ALL fields of a record with the provided data object — any existing fields not in data are deleted. ' +
@@ -1450,6 +1502,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'findOneRecord',
+      title: 'Find one record',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -1468,6 +1521,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'findUniqRecord',
+      title: 'Find unique record',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -1486,7 +1540,8 @@ export const tools: Tool[] = (
     },
     {
       name: 'deleteRecordById',
-      annotations: DESTROY,
+      title: 'Delete record by ID',
+      annotations: IDEMPOTENT_DESTROY,
       securitySchemes: WRITE_SCHEMES,
       description:
         'Delete a single record by ID. Irreversible. ' +
@@ -1503,6 +1558,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'propertyValues',
+      title: 'List property values',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -1546,6 +1602,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'searchValues',
+      title: 'Search values',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -1567,6 +1624,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'getSchemaSummary',
+      title: 'Get schema summary',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -1582,6 +1640,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'resolveNames',
+      title: 'Resolve names',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -1598,6 +1657,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'getJoinCandidates',
+      title: 'Get join candidates',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -1613,6 +1673,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'findProperties',
+      title: 'Find properties',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -1645,6 +1706,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'findPropertyById',
+      title: 'Get property',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -1659,7 +1721,8 @@ export const tools: Tool[] = (
     },
     {
       name: 'deleteProperty',
-      annotations: DESTROY,
+      title: 'Delete property',
+      annotations: IDEMPOTENT_DESTROY,
       securitySchemes: WRITE_SCHEMES,
       description:
         'Permanently delete a property and all its values from every record that has it. Irreversible. ' +
@@ -1673,6 +1736,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'findEmbeddingIndexes',
+      title: 'List embedding indexes',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -1683,6 +1747,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'createEmbeddingIndex',
+      title: 'Create embedding index',
       annotations: WRITE,
       securitySchemes: WRITE_SCHEMES,
       description:
@@ -1725,7 +1790,8 @@ export const tools: Tool[] = (
     },
     {
       name: 'upsertEmbeddingVectors',
-      annotations: WRITE,
+      title: 'Upsert embedding vectors',
+      annotations: IDEMPOTENT_DESTROY,
       securitySchemes: WRITE_SCHEMES,
       description:
         'Write pre-computed embedding vectors to an external vector index for a set of records. ' +
@@ -1761,7 +1827,8 @@ export const tools: Tool[] = (
     },
     {
       name: 'deleteEmbeddingIndex',
-      annotations: DESTROY,
+      title: 'Delete embedding index',
+      annotations: IDEMPOTENT_DESTROY,
       securitySchemes: WRITE_SCHEMES,
       description:
         'Delete an embedding index policy by its ID and strip all stored embedding vectors for that index. Irreversible. ' +
@@ -1776,6 +1843,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'getEmbeddingIndexStats',
+      title: 'Get embedding index stats',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -1794,6 +1862,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'vectorSearch',
+      title: 'Vector search',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -1912,6 +1981,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'listTextIndexes',
+      title: 'List text indexes',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -1920,6 +1990,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'createTextIndex',
+      title: 'Create text index',
       annotations: WRITE,
       securitySchemes: WRITE_SCHEMES,
       description:
@@ -1950,7 +2021,8 @@ export const tools: Tool[] = (
     },
     {
       name: 'deleteTextIndex',
-      annotations: DESTROY,
+      title: 'Delete text index',
+      annotations: IDEMPOTENT_DESTROY,
       securitySchemes: WRITE_SCHEMES,
       description: 'Drop a text index by name. Irreversible. Confirm with the user before calling.',
       inputSchema: {
@@ -1963,6 +2035,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'textSearch',
+      title: 'Text search',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -1993,6 +2066,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'semanticSearch',
+      title: 'Semantic search',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -2062,6 +2136,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'listConnections',
+      title: 'List connections',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -2072,6 +2147,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'getConnection',
+      title: 'Get connection',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -2085,7 +2161,9 @@ export const tools: Tool[] = (
     },
     {
       name: 'syncConnection',
-      annotations: WRITE,
+      title: 'Sync connection',
+      // Pulls data from the connected external source.
+      annotations: { ...DESTROY, openWorldHint: true },
       securitySchemes: WRITE_SCHEMES,
       description:
         'Start a sync of a connection now, to refresh its data: every enabled stream, or the streams named. ' +
@@ -2108,6 +2186,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'listImports',
+      title: 'List import runs',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -2126,6 +2205,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'getImport',
+      title: 'Get import run',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -2139,6 +2219,7 @@ export const tools: Tool[] = (
     },
     {
       name: 'smartSearch',
+      title: 'Smart search',
       annotations: READ_ONLY,
       securitySchemes: READ_SCHEMES,
       description:
@@ -2160,4 +2241,9 @@ export const tools: Tool[] = (
       }
     }
   ] as const satisfies Array<Omit<Tool, 'outputSchema'>>
-).map((tool) => ({ ...tool, outputSchema: outputSchemas[tool.name] }))
+).map((tool) => ({
+  ...tool,
+  outputSchema: outputSchemas[tool.name],
+  // Mirrored in _meta for clients that read securitySchemes from there (Apps SDK).
+  _meta: { securitySchemes: tool.securitySchemes }
+}))
