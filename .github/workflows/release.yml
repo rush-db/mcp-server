@@ -115,7 +115,13 @@ jobs:
           set -euo pipefail
           get(){ aws ssm get-parameters-by-path --with-decryption --recursive \
                    --path "$1" --query 'Parameters[].[Name,Value]' --output text; }
-          while IFS=$'\t' read -r n v; do echo "${n##*/}=$v" >> "$GITHUB_OUTPUT"; done < <(get /rushdb/prod/ci)
+          # Mask every value before it reaches an output or a file: this repo's
+          # logs are public, and step inputs are echoed into them.
+          while IFS=$'\t' read -r n v; do
+            echo "::add-mask::$v"
+            echo "${n##*/}=$v" >> "$GITHUB_OUTPUT"
+          done < <(get /rushdb/prod/ci)
+          get /rushdb/prod/mcp | while IFS=$'\t' read -r n v; do echo "::add-mask::$v"; done
           jq -Rn '[inputs|split("\t")|{key:(.[0]|split("/")|last),value:.[1]}]|from_entries' < <(get /rushdb/prod/mcp) > mcp-env.json
 
       - uses: tailscale/github-action@v4
