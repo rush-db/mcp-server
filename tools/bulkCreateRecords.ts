@@ -60,6 +60,56 @@ export function toBatches<T>(rows: T[], maxRows: number, maxBytes = MAX_BATCH_BY
   return batches
 }
 
+const span = (from: number, to: number, noun: string) =>
+  from === to ? `${noun} ${from}` : `${noun}es ${from}–${to}`
+
+const rowRange = (from: number, to: number) => (from === to ? `row ${from}` : `rows ${from}–${to}`)
+
+/**
+ * What a failed batch left behind, for a call split into several requests: which
+ * batches committed (or are staged in the transaction), which one failed, and which
+ * were never sent, with their 1-based row ranges in `data`.
+ */
+export function describeBatchFailure(params: {
+  sizes: number[]
+  failed: number
+  written: number
+  transactionId?: string
+}): string {
+  const { sizes, failed, written, transactionId } = params
+  const n = sizes.length
+  const start = (i: number) => sizes.slice(0, i).reduce((a, b) => a + b, 0) + 1
+  const end = (i: number) => start(i) + sizes[i] - 1
+  const rows = start(n - 1) + sizes[n - 1] - 1
+  const parts: string[] = []
+
+  if (failed > 0) {
+    const done = `${span(1, failed, 'batch')} (${rowRange(1, end(failed - 1))}, ${written} records)`
+    const are = failed === 1 ? 'is' : 'are'
+    parts.push(
+      transactionId ?
+        `${done} ${are} staged in the transaction, not committed`
+      : `${done} committed and ${failed === 1 ? 'stays' : 'stay'} written`
+    )
+  }
+  parts.push(
+    `batch ${failed + 1} (${rowRange(start(failed), end(failed))}) failed${failed === 0 && !transactionId ? ' and nothing was written' : ''}`
+  )
+  if (failed + 1 < n) {
+    const verb = failed + 2 === n ? 'was' : 'were'
+    parts.push(`${span(failed + 2, n, 'batch')} (${rowRange(start(failed + 1), rows)}) ${verb} not sent`)
+  }
+
+  const next =
+    transactionId ?
+      `Roll the transaction back, or resend ${rowRange(start(failed), rows)} in it before committing.`
+    : failed > 0 ?
+      `To finish, fix the cause and resend only ${rowRange(start(failed), rows)}; do not resend the committed rows.`
+    : `Fix the cause and resend the call.`
+  const how = transactionId ? `in transaction ${transactionId}` : 'not atomic'
+  return `Sent in ${n} batches, ${how}: ${parts.join('; ')}. ${next}`
+}
+
 export async function bulkCreateRecords({
   label,
   data,
@@ -88,11 +138,14 @@ export async function bulkCreateRecords({
           await db.records.createMany({ label, data: batch, options: normalizedOptions }, transactionId)
         : await db.records.importJson({ label, data: batch, options: normalizedOptions }, transactionId)
     } catch (error) {
-      // Earlier batches are already committed unless they ran in a transaction.
-      if (i > 0 && !transactionId && error instanceof Error) {
-        const note =
-          `Batch ${i + 1} of ${batches.length} failed; the ${total} records of the ${i} ` +
-          `batch${i === 1 ? '' : 'es'} before it were written and stay written.`
+      // A call split into batches is not atomic: say what committed and what did not.
+      if (batches.length > 1 && error instanceof Error) {
+        const note = describeBatchFailure({
+          sizes: batches.map((b) => b.length),
+          failed: i,
+          written: total,
+          transactionId
+        })
         ;(error as any).partialWrite = note
         error.message = `${error.message} (${note})`
       }

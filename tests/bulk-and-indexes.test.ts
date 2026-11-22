@@ -57,23 +57,46 @@ describe('bulkCreateRecords batching', () => {
     expect(toBatches([], 5000)).toEqual([])
   })
 
-  it('says what stayed written when a later batch fails outside a transaction', async () => {
+  it('says which batches committed, which failed and which were not sent', async () => {
     const { bulkCreateRecords } = await import('../tools/bulkCreateRecords.js')
     calls.length = 0
     failAt = 1
-    const error: any = await bulkCreateRecords({ label: 'Item', data: rows(7000) }).catch((e) => e)
+    const error: any = await bulkCreateRecords({ label: 'Item', data: rows(12_001) }).catch((e) => e)
     failAt = -1
-    expect(error.message).toBe(
-      '503 unavailable (Batch 2 of 2 failed; the 5000 records of the 1 batch before it were written and stay written.)'
+    expect(calls).toEqual([
+      ['createMany', 5000],
+      ['createMany', 5000]
+    ])
+    expect(error.partialWrite).toBe(
+      'Sent in 3 batches, not atomic: batch 1 (rows 1–5000, 5000 records) committed and stays written; ' +
+        'batch 2 (rows 5001–10000) failed; batch 3 (rows 10001–12001) was not sent. ' +
+        'To finish, fix the cause and resend only rows 5001–12001; do not resend the committed rows.'
     )
     // The status prefix stays first, for the status mapping.
+    expect(error.message.startsWith('503 unavailable (Sent in 3 batches')).toBe(true)
     expect(/^(\d{3})(?:\s|$)/.exec(error.message)?.[1]).toBe('503')
+  })
 
+  it('describes a first-batch failure and a failure inside a transaction', async () => {
+    const { describeBatchFailure } = await import('../tools/bulkCreateRecords.js')
+    expect(describeBatchFailure({ sizes: [5000, 5000, 2000, 1], failed: 0, written: 0 })).toBe(
+      'Sent in 4 batches, not atomic: batch 1 (rows 1–5000) failed and nothing was written; ' +
+        'batches 2–4 (rows 5001–12001) were not sent. Fix the cause and resend the call.'
+    )
+    expect(describeBatchFailure({ sizes: [5000, 5000, 5000], failed: 2, written: 10_000, transactionId: 'tx1' })).toBe(
+      'Sent in 3 batches, in transaction tx1: batches 1–2 (rows 1–10000, 10000 records) are staged in the transaction, not committed; ' +
+        'batch 3 (rows 10001–15000) failed. Roll the transaction back, or resend rows 10001–15000 in it before committing.'
+    )
+  })
+
+  it('leaves a single-request call as it was', async () => {
+    const { bulkCreateRecords } = await import('../tools/bulkCreateRecords.js')
     calls.length = 0
-    failAt = 1
-    const inTx: any = await bulkCreateRecords({ label: 'Item', data: rows(7000), transactionId: 'tx' }).catch((e) => e)
+    failAt = 0
+    const error: any = await bulkCreateRecords({ label: 'Item', data: rows(10) }).catch((e) => e)
     failAt = -1
-    expect(inTx.message).toBe('503 unavailable')
+    expect(error.message).toBe('503 unavailable')
+    expect(error.partialWrite).toBeUndefined()
   })
 })
 

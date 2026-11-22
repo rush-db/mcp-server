@@ -1456,7 +1456,9 @@ export const tools: Tool[] = (
         'Insert multiple records of the same label in one call. ' +
         'Set mergeStrategy ("append" to keep existing unspecified fields, "rewrite" to replace) and mergeBy (fields to match on) in options to enable upsert semantics. ' +
         'With them, matching existing records are changed in place and the given fields are overwritten. ' +
-        'Use the exact label casing returned by findLabels.',
+        'Use the exact label casing returned by findLabels. ' +
+        'Large calls are sent in batches of 5,000 flat rows (10,000 nested documents, at most about 8 MB each). Batches are not atomic without a transactionId: ' +
+        'if one fails, the error names the batches that committed, the one that failed and those not sent, with row ranges; resend only the uncommitted rows.',
 
       inputSchema: {
         type: 'object',

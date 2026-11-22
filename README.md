@@ -163,7 +163,7 @@ inputs and safety levels, is at [docs.rushdb.com/3.x/learn/reference/mcp/tools](
 | `updateRecord` | Update some fields of a record |
 | `setRecord` | Replace all fields of a record |
 | `deleteRecord` / `deleteRecordById` | Delete one record by ID |
-| `bulkCreateRecords` | Insert or upsert many records with one label, sent in batches of 5,000 flat rows (10,000 nested documents) |
+| `bulkCreateRecords` | Insert or upsert many records with one label, sent in batches of 5,000 flat rows (10,000 nested documents). Batches are not atomic without a `transactionId`; a failure names which batches committed and which did not |
 | `bulkDeleteRecords` | Delete the records matching a query; `check: "strict"` refuses a filter naming something no record holds (RushDB 3.0.14+) |
 | `exportRecords` | Export matching records as CSV |
 
