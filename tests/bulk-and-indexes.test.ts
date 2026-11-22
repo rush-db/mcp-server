@@ -124,6 +124,8 @@ describe('property index tools', () => {
       delete: async (name: string) => (seen.push(name), { success: true, data: { deleted: false } })
     }
     expect((await listIndexes())[0]).toMatchObject({ unique: true, kind: 'unique' })
+    state.indexes.find = async () => ({ data: [{ name: 'x', label: 'L', property: 'p', kind: 'ordered', state: 'building' }] })
+    expect((await listIndexes())[0]).toMatchObject({ unique: false, status: 'building' })
     expect(await createIndex({ label: 'User', property: 'email', unique: true })).toMatchObject({ unique: true, status: 'building' })
     await createIndex({ label: 'Item', property: 'price', name: 'item_price' })
     expect(await deleteIndex({ name: 'gone' })).toEqual({ deleted: false })

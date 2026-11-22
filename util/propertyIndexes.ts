@@ -37,7 +37,12 @@ export function indexesApi() {
   return api
 }
 
+// The engine names the build state `state`; the SDK contract calls it `status`.
 export const withUnique = (index: any): PropertyIndex =>
   index && typeof index === 'object' ?
-    { ...index, unique: typeof index.unique === 'boolean' ? index.unique : index.kind === 'unique' }
+    {
+      ...index,
+      unique: typeof index.unique === 'boolean' ? index.unique : index.kind === 'unique',
+      ...(index.status === undefined && index.state !== undefined ? { status: index.state } : {})
+    }
   : index
