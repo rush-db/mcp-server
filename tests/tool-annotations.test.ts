@@ -15,7 +15,8 @@ const DESTRUCTIVE = new Set([
   'deleteRelationshipPattern',
   'deleteProperty',
   'deleteEmbeddingIndex',
-  'deleteTextIndex'
+  'deleteTextIndex',
+  'deleteIndex'
 ])
 
 describe('tool annotations', () => {

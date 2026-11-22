@@ -958,6 +958,69 @@ exports[`tool security schemes > match the tools/list snapshot 1`] = `
         },
       ],
     },
+    "name": "listIndexes",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:read",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:write",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "createIndex",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:write",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:write",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
+    "name": "deleteIndex",
+    "securitySchemes": [
+      {
+        "scopes": [
+          "records:write",
+        ],
+        "type": "oauth2",
+      },
+    ],
+  },
+  {
+    "_meta": {
+      "securitySchemes": [
+        {
+          "scopes": [
+            "records:read",
+          ],
+          "type": "oauth2",
+        },
+      ],
+    },
     "name": "textSearch",
     "securitySchemes": [
       {

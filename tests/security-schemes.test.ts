@@ -23,14 +23,14 @@ describe('tool security schemes', () => {
 
   it('allow only the read tools for records:read', () => {
     const allowed = tools.filter((tool) => isToolAllowedForScopes(tool, ['records:read']))
-    expect(allowed).toHaveLength(32)
+    expect(allowed).toHaveLength(33)
     for (const tool of allowed) {
       expect(tool.securitySchemes, tool.name).toEqual([{ type: 'oauth2', scopes: ['records:read'] }])
     }
   })
 
   it('allow every tool for records:write, as for both scopes', () => {
-    expect(tools).toHaveLength(53)
+    expect(tools).toHaveLength(56)
     expect(tools.filter((tool) => isToolAllowedForScopes(tool, ['records:write']))).toEqual(tools)
     expect(tools.filter((tool) => isToolAllowedForScopes(tool, ['records:read', 'records:write']))).toEqual(tools)
   })

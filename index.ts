@@ -37,7 +37,7 @@ import { deleteRecord } from './tools/deleteRecord.js'
 import { findRecords } from './tools/findRecords.js'
 import { getRecord } from './tools/getRecord.js'
 import { attachRelation } from './tools/attachRelation.js'
-import { updateRelation } from './tools/updateRelation.js'
+import { updateRelation, type RelationPropertyType } from './tools/updateRelation.js'
 import { detachRelation } from './tools/detachRelation.js'
 import { findRelationships } from './tools/findRelationships.js'
 import { listRelationshipPatterns } from './tools/listRelationshipPatterns.js'
@@ -76,6 +76,9 @@ import { vectorSearch } from './tools/vectorSearch.js'
 import { listTextIndexes } from './tools/listTextIndexes.js'
 import { createTextIndex } from './tools/createTextIndex.js'
 import { deleteTextIndex } from './tools/deleteTextIndex.js'
+import { listIndexes } from './tools/listIndexes.js'
+import { createIndex } from './tools/createIndex.js'
+import { deleteIndex } from './tools/deleteIndex.js'
 import { textSearch } from './tools/textSearch.js'
 import type { VectorSearchParams } from '@rushdb/javascript-sdk'
 import { semanticSearch } from './tools/semanticSearch.js'
@@ -85,6 +88,7 @@ import { getSchemaMarkdown } from './tools/getSchemaMarkdown.js'
 import SYSTEM_PROMPT from './systemPrompt.js'
 import { getSearchQuerySpec } from './tools/getSearchQuerySpec.js'
 import { isDirectMode, requestContext, RequestContext } from './util/db.js'
+import { describeKnownError, formatCatalogWarnings, type CatalogCheckMode } from './util/catalog.js'
 import { fetchApiKeyScopes, resolveRequestContext, makeMcpAuthError } from './util/auth.js'
 import { registerWellKnownRoutes } from './util/wellKnown.js'
 
@@ -307,7 +311,8 @@ function createMcpServer(): Server {
               aggregate: args.aggregate as
                 | Record<string, { fn: string; field?: string; alias?: string; where?: any }>
                 | undefined,
-              groupBy: args.groupBy as string[] | undefined
+              groupBy: args.groupBy as string[] | undefined,
+              check: args.check as CatalogCheckMode | undefined
             })
 
             const isAggregate = Boolean(args.select) || Boolean(args.aggregate) || Boolean(args.groupBy)
@@ -315,9 +320,12 @@ function createMcpServer(): Server {
               isAggregate ? false : (
                 Array.isArray((foundRecords as any)?.data) && (foundRecords as any).data.length === 0
               )
+            // Catalog warnings go first: on an empty result they are usually the answer.
+            const recordsWarnings = formatCatalogWarnings(foundRecords.warnings ?? [])
+            const recordsText = isEmpty ? 'No matching records found.' : JSON.stringify(foundRecords, null, 2)
             return toolResult(
               foundRecords as Record<string, unknown>,
-              isEmpty ? 'No matching records found.' : JSON.stringify(foundRecords, null, 2)
+              recordsWarnings ? `${recordsWarnings}\n\n${recordsText}` : recordsText
             )
 
           case 'getRecord':
@@ -360,7 +368,7 @@ function createMcpServer(): Server {
               direction: args.direction as 'outgoing' | 'incoming' | undefined,
               set: args.set as Record<string, unknown> | undefined,
               unset: args.unset as string[] | undefined,
-              types: args.types as Record<string, 'string' | 'number' | 'boolean' | 'datetime'> | undefined
+              types: args.types as Record<string, RelationPropertyType> | undefined
             })
             return toolResult(updateRelationResult, updateRelationResult.message)
 
@@ -435,7 +443,8 @@ function createMcpServer(): Server {
             const bulkDeleteResult = await bulkDeleteRecords({
               labels: args.labels as string[] | undefined,
               where: args.where as Record<string, any>,
-              transactionId: args.transactionId as string | undefined
+              transactionId: args.transactionId as string | undefined,
+              check: args.check as CatalogCheckMode | undefined
             })
             return toolResult({ success: true, message: bulkDeleteResult.message }, bulkDeleteResult.message)
 
@@ -509,9 +518,12 @@ function createMcpServer(): Server {
               limit: args.limit as number | undefined,
               skip: args.skip as number | undefined
             })
+            const pvData = pvResult.data ?? null
+            const pvWarnings = formatCatalogWarnings(pvResult.warnings)
+            const pvText = pvData ? JSON.stringify(pvData, null, 2) : 'No property values found'
             return toolResult(
-              { propertyValues: pvResult ?? null },
-              pvResult ? JSON.stringify(pvResult, null, 2) : 'No property values found'
+              { propertyValues: pvData, ...(pvResult.warnings.length ? { warnings: pvResult.warnings } : {}) },
+              pvWarnings ? `${pvWarnings}\n\n${pvText}` : pvText
             )
           }
 
@@ -748,6 +760,32 @@ function createMcpServer(): Server {
             return toolResult({ deleted: true }, `Text index ${args.name as string} dropped`)
           }
 
+          case 'listIndexes': {
+            const indexes = await listIndexes()
+            return toolResult(
+              { indexes },
+              indexes.length > 0 ? JSON.stringify(indexes, null, 2) : 'No ordered or unique indexes found'
+            )
+          }
+
+          case 'createIndex': {
+            const index = await createIndex({
+              label: args.label as string,
+              property: args.property as string,
+              unique: args.unique as boolean | undefined,
+              name: args.name as string | undefined
+            })
+            return toolResult({ index }, JSON.stringify(index, null, 2))
+          }
+
+          case 'deleteIndex': {
+            const dropped = await deleteIndex({ name: args.name as string })
+            return toolResult(
+              dropped,
+              dropped.deleted ? `Index ${args.name as string} dropped` : `No index named ${args.name as string}`
+            )
+          }
+
           case 'textSearch': {
             const found = await textSearch({
               query: args.query as string,
@@ -819,6 +857,14 @@ function createMcpServer(): Server {
 
       const message = error instanceof Error ? error.message : String(error)
 
+      // A unique index conflict or a strict catalog check refusal names what
+      // to fix in its details; say that rather than a bare status.
+      const known = describeKnownError(error)
+      if (known) {
+        const partial = (error as any)?.partialWrite
+        return toolError(partial ? `${known}\n${partial}` : known)
+      }
+
       // Direct mode talks to a self-hosted engine with its own URL and token:
       // name those, and leave HTTP errors (a 401 is a wrong token, not a
       // missing one) to the status mapping below.
@@ -874,7 +920,7 @@ function createMcpServer(): Server {
             'Not found (404): the requested resource does not exist. Verify that record IDs, project IDs, and label names are correct (labels are case-sensitive). Call getSchemaMarkdown to rediscover the available schema.'
         } else if (status === 409) {
           hint =
-            'Conflict (409): the operation conflicts with existing data. Check for duplicate keys or conflicting constraints.'
+            'Conflict (409): the operation conflicts with existing data, such as a value a unique index allows only once, or a concurrent write (retry that). Check for duplicate keys or conflicting constraints.'
         } else if (status === 422) {
           hint =
             'Unprocessable entity (422): the server could not process the request. Check field types and required fields match the schema.'
@@ -883,7 +929,9 @@ function createMcpServer(): Server {
         } else {
           hint = `HTTP error ${status} from RushDB API.`
         }
-        return toolError(hint)
+        // Keep the server's own reason (the text after the status) beside the hint.
+        const reason = message.trim().slice(httpStatus.length).trim()
+        return toolError(reason ? `${hint}\nServer said: ${reason}` : hint)
       }
 
       // Generic error fallback

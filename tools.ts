@@ -56,6 +56,9 @@ export type ToolName =
   | 'listTextIndexes'
   | 'createTextIndex'
   | 'deleteTextIndex'
+  | 'listIndexes'
+  | 'createIndex'
+  | 'deleteIndex'
   | 'textSearch'
   | 'vectorSearch'
   | 'semanticSearch'
@@ -116,6 +119,9 @@ export const TOOL_SDK_METHODS: Record<ToolName, string[]> = {
   listTextIndexes: ['textIndexes.find'],
   createTextIndex: ['textIndexes.create'],
   deleteTextIndex: ['textIndexes.delete'],
+  listIndexes: ['indexes.find'],
+  createIndex: ['indexes.create'],
+  deleteIndex: ['indexes.delete'],
   textSearch: ['records.textSearch'],
   vectorSearch: ['records.vectorSearch'],
   semanticSearch: ['records.vectorSearch'],
@@ -404,11 +410,41 @@ const WRITE_RECORD_OUTPUT_SCHEMA: Schema = {
   additionalProperties: false
 }
 
+// Catalog check (RushDB 3.0.14+): what the query names that the data does not hold,
+// with the stored spelling. Absent when nothing is missing or the server predates it.
+const CATALOG_WARNINGS_SCHEMA: Schema = {
+  type: 'array',
+  items: {
+    type: 'object',
+    properties: {
+      kind: { type: 'string' },
+      label: { type: 'string' },
+      labels: { type: 'array', items: { type: 'string' } },
+      property: { type: 'string' },
+      suggestions: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            label: { type: 'string' },
+            property: { type: 'string' },
+            reason: { type: 'string' }
+          },
+          additionalProperties: true
+        }
+      }
+    },
+    required: ['kind'],
+    additionalProperties: true
+  }
+}
+
 const RECORDS_OUTPUT_SCHEMA: Schema = {
   type: 'object',
   properties: {
     data: { type: 'array', items: RECORD_SCHEMA },
-    total: { type: 'number' }
+    total: { type: 'number' },
+    warnings: CATALOG_WARNINGS_SCHEMA
   },
   required: ['data', 'total'],
   additionalProperties: true
@@ -425,6 +461,20 @@ const TEXT_INDEX_SCHEMA: Schema = {
     pending: { type: 'number' }
   },
   required: ['name', 'label', 'property', 'status'],
+  additionalProperties: true
+}
+
+const PROPERTY_INDEX_SCHEMA: Schema = {
+  type: 'object',
+  properties: {
+    name: { type: 'string' },
+    label: { type: 'string' },
+    property: { type: 'string' },
+    kind: { type: 'string', enum: ['ordered', 'unique'] },
+    unique: { type: 'boolean' },
+    status: { type: 'string', enum: ['building', 'ready', 'dropping'] }
+  },
+  required: ['name', 'label', 'property', 'unique', 'status'],
   additionalProperties: true
 }
 
@@ -569,7 +619,10 @@ const outputSchemas = {
   deleteRecordById: MESSAGE_SCHEMA,
   propertyValues: {
     type: 'object',
-    properties: { propertyValues: { anyOf: [PROPERTY_SCHEMA, { type: 'null' }] } },
+    properties: {
+      propertyValues: { anyOf: [PROPERTY_SCHEMA, { type: 'null' }] },
+      warnings: CATALOG_WARNINGS_SCHEMA
+    },
     required: ['propertyValues'],
     additionalProperties: false
   },
@@ -676,6 +729,24 @@ const outputSchemas = {
     additionalProperties: false
   },
   deleteTextIndex: {
+    type: 'object',
+    properties: { deleted: { type: 'boolean' } },
+    required: ['deleted'],
+    additionalProperties: false
+  },
+  listIndexes: {
+    type: 'object',
+    properties: { indexes: { type: 'array', items: PROPERTY_INDEX_SCHEMA } },
+    required: ['indexes'],
+    additionalProperties: false
+  },
+  createIndex: {
+    type: 'object',
+    properties: { index: PROPERTY_INDEX_SCHEMA },
+    required: ['index'],
+    additionalProperties: false
+  },
+  deleteIndex: {
     type: 'object',
     properties: { deleted: { type: 'boolean' } },
     required: ['deleted'],
@@ -831,7 +902,7 @@ export const tools: Tool[] = (
       description:
         'STEP 0 — call this ONCE at the start of every conversation before constructing any query. ' +
         'Returns the complete graph schema as compact Markdown: all labels with record counts, ' +
-        'all properties per label with their type and value ranges (min/max for numbers/datetimes, ' +
+        'all properties per label with their type and value ranges (min/max for numbers, dates and times, ' +
         'sample values for strings/booleans; array properties render as type[]), and all cross-label relationships with direction and edge property summaries. ' +
         'The Properties table includes a "Semantic Search" column: properties with an embedding index show ' +
         '`sourceType similarityFunction dimensionsd [status]` (e.g. `managed cosine 1536d [ready]`); ' +
@@ -866,7 +937,7 @@ export const tools: Tool[] = (
         'Returns the same graph schema as getSchemaMarkdown but as structured JSON. ' +
         'Each item has: label (string), count (number), properties (array with id, name, type, optional isArray, ' +
         'recordsCount (number of records that carry this property), ' +
-        'min/max for numbers/datetimes, values[] for strings/booleans, and an optional vectorIndexes array), ' +
+        'min/max for numbers, dates and times, values[] for strings/booleans, and an optional vectorIndexes array), ' +
         'and relationships (array with label, type, direction: in|out, count, and optional edge properties). ' +
         'vectorIndexes is non-empty when one or more embedding indexes exist for that property; ' +
         'each entry has: id, sourceType (managed|external), similarityFunction (cosine|euclidean), ' +
@@ -1013,7 +1084,9 @@ export const tools: Tool[] = (
         'Search records with a structured SearchQuery. ' +
         'BEFORE building any query with dates, metrics, groupBy, relationship traversal, or vector search — call getSearchQuerySpec to load the complete syntax reference. ' +
         'INTENT: metrics/analytics request (count/total/sum/avg/breakdown/top N by metric) → MUST include select + groupBy. NEVER fetch raw records to count/sum manually. ' +
-        'RESPONSE: { data:[...records], total:N } — for simple "how many" read total directly; no count select needed. ' +
+        'RESPONSE: { data:[...records], total:N, warnings? } — for simple "how many" read total directly; no count select needed. ' +
+        'warnings (catalog check) lists labels, properties or compared texts the data does not hold, with the stored spelling or the property that stores the text: ' +
+        're-run with the suggestion instead of answering "nothing found". ' +
         'HARD RULES: ' +
         '(1) NEVER set limit when select is present — restricts the record scan and produces mathematically wrong results. Omit limit for all metrics queries. ' +
         '(2) labels contains root records only; put related labels inside where traversal blocks with $alias when referenced. ' +
@@ -1031,7 +1104,7 @@ export const tools: Tool[] = (
               'Filter conditions. Field names must match exactly what findProperties/getSchemaMarkdown returns. ' +
               'Exact match can be field: value or field: { $eq: value }. ' +
               'For incomplete named references, prefer $contains on a display property confirmed via schema discovery instead of exact equality. ' +
-              'For the complete operator reference (string/number/boolean/datetime/vector/$eq/$exists/$type/logical/$alias/$relation incl. multihop hops/$cycle/$id) call getSearchQuerySpec.'
+              'For the complete operator reference (string/number/boolean/dates and times/points with $within/vector/$eq/$exists/$type/logical/$alias/$relation incl. multihop hops/$cycle/$id) call getSearchQuerySpec.'
           },
           limit: {
             type: 'number',
@@ -1043,8 +1116,18 @@ export const tools: Tool[] = (
           skip: { type: 'number', description: 'Number of records to skip', default: 0 },
           orderBy: {
             type: 'object',
-            description: 'Sorting configuration: key = field, value = asc|desc',
-            additionalProperties: { type: 'string', enum: ['asc', 'desc'] }
+            description:
+              'Sorting configuration: key = field, value = asc|desc. For a point field, { $distance: <GeoJSON Point> } sorts nearest first (RushDB 3.0.14+).',
+            additionalProperties: {
+              anyOf: [
+                { type: 'string', enum: ['asc', 'desc'] },
+                {
+                  type: 'object',
+                  properties: { $distance: { type: 'object', description: 'GeoJSON Point, longitude first' } },
+                  required: ['$distance']
+                }
+              ]
+            }
           },
           select: {
             type: 'object',
@@ -1059,6 +1142,13 @@ export const tools: Tool[] = (
               'Two modes: (A) Dimensional — "$alias.propertyName" strings, one row per distinct value; ' +
               '(B) Self-group — select key names, collapses to one row. ' +
               'Do not use alias-only values such as "$record" or "$related". Call getSearchQuerySpec for full reference.'
+          },
+          check: {
+            type: 'string',
+            enum: ['warn', 'strict', 'off'],
+            description:
+              'Catalog check (RushDB 3.0.14+). Leave unset: the server warns by default and older servers do not know it. ' +
+              '"strict" refuses a query naming a label, property or text no record holds, with the stored spelling; "off" skips the check.'
           }
         },
         required: []
@@ -1187,8 +1277,12 @@ export const tools: Tool[] = (
           types: {
             type: 'object',
             description:
-              'Type of `set` properties whose JSON form is ambiguous, e.g. { "since": "datetime" } stores an ISO 8601 string as a datetime. Every name must also be in `set`.',
-            additionalProperties: { type: 'string', enum: ['string', 'number', 'boolean', 'datetime'] }
+              'Type of `set` properties whose JSON form is ambiguous, e.g. { "since": "datetime" } stores an ISO 8601 string as a datetime. ' +
+              'Relationship values are never inferred, so name the type for dates and times. date, localdatetime, localtime, duration and point need RushDB 3.0.14+. Every name must also be in `set`.',
+            additionalProperties: {
+              type: 'string',
+              enum: ['string', 'number', 'boolean', 'datetime', 'date', 'localdatetime', 'localtime', 'duration', 'point']
+            }
           }
         },
         required: ['sourceId', 'relationType']
@@ -1416,7 +1510,14 @@ export const tools: Tool[] = (
         properties: {
           labels: { type: 'array', items: { type: 'string' }, description: 'Filter by record labels' },
           where: { type: 'object', description: 'Search conditions for records to delete' },
-          transactionId: { type: 'string', description: 'Optional transaction ID for atomic bulk deletion' }
+          transactionId: { type: 'string', description: 'Optional transaction ID for atomic bulk deletion' },
+          check: {
+            type: 'string',
+            enum: ['warn', 'strict', 'off'],
+            description:
+              'Catalog check (RushDB 3.0.14+). "strict" refuses the delete when where names a property or text no record holds; ' +
+              'use it when where has $ne/$nin/$not, where a misspelled value would match (and delete) every record. Leave unset on older servers.'
+          }
         },
         required: ['where']
       }
@@ -1471,7 +1572,7 @@ export const tools: Tool[] = (
       securitySchemes: READ_SCHEMES,
       description:
         'Returns the complete RushDB SearchQuery specification as a focused reference document. ' +
-        'Covers: all WHERE operators (string/number/boolean/datetime component objects/vector/$exists/$type), ' +
+        'Covers: all WHERE operators (string/number/boolean, date/time/duration types, points with $within and $distance ordering, component objects/vector/$exists/$type), ' +
         'relationship traversal syntax ($alias/$relation with variable-length hops/$cycle ring detection/$id), logical grouping ($and/$or/$not/$nor/$xor), ' +
         'all select functions ($sum/$avg/$min/$max/$count/$collect/$timeBucket), both groupBy modes (dimensional + self-group), ' +
         'late-ordering rules, root-label vs related-label traversal rules, COLLECT nesting, limit rules by query mode, multi-hop path discovery, ' +
@@ -1564,9 +1665,10 @@ export const tools: Tool[] = (
       description:
         'Get statistics or distinct values for a specific property, identified by the `id` field returned from findProperties. ' +
         'What this tool returns depends on the property type:\n' +
-        '  • number / datetime → returns { min, max } — use this to answer range, min/max, or spread questions for numeric or date fields. No findRecords aggregation needed.\n' +
+        '  • number / datetime / date / localdatetime / localtime / duration → returns { min, max } (dates and times as ISO 8601 text in their own type) — use this to answer range, min/max, or spread questions. No findRecords aggregation needed.\n' +
         '  • string / boolean  → returns a list of all distinct values — use this to canonicalize filter values before querying.\n' +
-        'Workflow for range/min/max questions: (1) findLabels, (2) findProperties to find the field and get its id and type, (3) call this tool with that id if type is number or datetime.',
+        'Workflow for range/min/max questions: (1) findLabels, (2) findProperties to find the field and get its id and type, (3) call this tool with that id if type is number or a date/time type. ' +
+        'With `query`, a text no value matches comes back with warnings naming the stored spelling (RushDB 3.0.14+).',
       inputSchema: {
         type: 'object',
         properties: {
@@ -1680,11 +1782,12 @@ export const tools: Tool[] = (
         'Discover the field names, types, and IDs available on a record label. ' +
         'Always call this before using field names in any query — never guess or invent field names. ' +
         'Filter by label using labels: ["LABEL_NAME"]. `where` is applied to Records, not property metadata. ' +
-        'Each returned property object has: id (string), name (string), type (string | number | boolean | datetime), recordsCount (number of records that carry this property). ' +
+        'Each returned property object has: id (string), name (string), type (string | number | boolean | datetime | date | localdatetime | localtime | duration | point), recordsCount (number of records that carry this property). ' +
         'Use the `name` field as the field name in where/orderBy/groupBy clauses. ' +
         'Use the `id` field as the `propertyId` argument to propertyValues. ' +
         'After calling this tool, decide the next step based on the field type: ' +
-        'number or datetime → call propertyValues(propertyId) to get { min, max } for range questions, OR use findRecords with select: { min: ..., max: ... }; ' +
+        'number or a date/time type → call propertyValues(propertyId) to get { min, max } for range questions, OR use findRecords with select: { min: ..., max: ... }; ' +
+        'point → filter with $within and sort with $distance (getSearchQuerySpec); ' +
         'string or boolean → call propertyValues(propertyId) to get distinct values before filtering.',
       inputSchema: {
         type: 'object',
@@ -2029,6 +2132,59 @@ export const tools: Tool[] = (
         type: 'object',
         properties: {
           name: { type: 'string', description: 'Name of the text index (from listTextIndexes).' }
+        },
+        required: ['name']
+      }
+    },
+    {
+      name: 'listIndexes',
+      title: 'List property indexes',
+      annotations: READ_ONLY,
+      securitySchemes: READ_SCHEMES,
+      description:
+        'List the project\'s ordered and unique property indexes (RushDB 3.0.14+): name, label, property (stored normalized, unitPrice → unitprice), unique and status. ' +
+        'A unique index means the label holds each value of that property at most once. Text indexes are in listTextIndexes, embedding indexes in findEmbeddingIndexes.',
+      inputSchema: { type: 'object', properties: {}, required: [] }
+    },
+    {
+      name: 'createIndex',
+      title: 'Create property index',
+      annotations: WRITE,
+      securitySchemes: WRITE_SCHEMES,
+      description:
+        'Declare an ordered index on one property of a label (RushDB 3.0.14+): faster filters, ranges, sorting, and $within on a point property. ' +
+        'unique: true also refuses any write that would give a second record of the label a value another record of it holds (one record per email, SKU, external id). ' +
+        'Declaring a unique index over data that already repeats a value is refused: find and fix the duplicates first. ' +
+        'It is built online and starts in status "building" (listIndexes).',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          label: { type: 'string', description: 'Record label to index (exact spelling from the schema).' },
+          property: { type: 'string', description: 'Property to index.' },
+          unique: {
+            type: 'boolean',
+            description: 'true: one record of the label per value; conflicting writes fail with 409. Default false (ordered only).',
+            default: false
+          },
+          name: {
+            type: 'string',
+            description: 'Index name, unique within the project. Defaults to <label>.<property>.ordered (or .unique).'
+          }
+        },
+        required: ['label', 'property']
+      }
+    },
+    {
+      name: 'deleteIndex',
+      title: 'Delete property index',
+      annotations: IDEMPOTENT_DESTROY,
+      securitySchemes: WRITE_SCHEMES,
+      description:
+        'Drop an ordered or unique index by name. Records are kept; dropping a unique index lets the label repeat values again. Confirm with the user before calling.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Name of the index (from listIndexes).' }
         },
         required: ['name']
       }
