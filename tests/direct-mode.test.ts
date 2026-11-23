@@ -8,11 +8,8 @@ describe('standalone direct mode', () => {
     expect(Object.keys(TOOL_SDK_METHODS).sort()).toEqual(tools.map((tool) => tool.name).sort())
     const RushDB: any = (RushDBImport as any).default ?? RushDBImport
     const db = new RushDB('token', { direct: true, engineUrl: 'http://127.0.0.1:3000' })
-    // db.indexes (ordered and unique indexes) comes with the SDK release for RushDB
-    // 3.0.14; until the installed SDK has it, those tools answer with a clear error.
-    const pending = (method: string) => method.startsWith('indexes.') && db.indexes === undefined
     for (const methods of Object.values(TOOL_SDK_METHODS)) {
-      for (const method of methods.filter((m) => !pending(m))) {
+      for (const method of methods) {
         const fn = method.split('.').reduce((owner, key) => owner?.[key], db)
         expect(typeof fn, method).toBe('function')
       }
