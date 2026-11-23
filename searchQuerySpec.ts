@@ -13,7 +13,8 @@ SearchQuery shape:
   where?     object        — filter conditions; see §1
   select?    object        — expression-based output shaping; see §2
   groupBy?   string[]      — shapes select output; see §3
-  orderBy?   string|object — 'asc'|'desc' or { field:'asc'|'desc' }
+  orderBy?   string|object — 'asc'|'desc' or { field:'asc'|'desc' } or { pointField:{ $distance:<GeoJSON Point> } }
+  context?   object        — { check:'warn'|'strict'|'off' } catalog check (findRecords arg check); leave unset
   limit?     number        — max root records (default 100; max 1000)
   skip?      number        — pagination offset
 
@@ -64,6 +65,7 @@ Direct equality, all types:
   age: 30                                // number
   age: { $eq: 30 }                       // exact number alias
   created: "2023-01-01T00:00:00Z"        // ISO 8601 datetime
+  day: "2023-01-01"                      // date (on a date property)
 
 ── STRING OPERATORS ─────────────────────────────────────────────────
   name: { $contains: "John" }            // substring match (case-insensitive)
@@ -95,22 +97,36 @@ Direct equality, all types:
   isActive: { $eq: true }         // exact equality alias
   isActive: { $ne: false }        // not equal (matches true or unset)
 
-── DATETIME OPERATORS ───────────────────────────────────────────────
-  ISO 8601 strings are valid for equality, $in, and range operators ($gt/$gte/$lt/$lte).
-  Use component objects for calendar-semantic boundaries (year / month / day) where
-  expressing the range as calendar units is clearer than computing a UTC timestamp.
+── DATE, TIME & DURATION OPERATORS ───────────────────────────────────
+  Each temporal value has its own type (shown by getSchemaMarkdown/findProperties):
+    datetime       an instant with its UTC offset   "2024-05-01T12:30:00+02:00", "2024-05-01T10:30:00Z"
+    localdatetime  wall-clock date+time, no zone    "2024-05-01T10:30:00"
+    date           calendar date                    "2024-05-01"
+    localtime      time of day                      "10:30:00"
+    duration       ISO 8601 duration                "P1DT2H", "PT90M"
+  Values are kept to the MICROSECOND and read back as written: a datetime keeps its offset
+  ("2024-05-01T12:30:00+02:00", not converted to Z), and fractions are as short as the value needs
+  ("10:30:00Z", "10:30:00.25Z", "10:30:00.000001Z"; never padded to .000). Quote values as returned.
+  (Servers before RushDB 3.0.14 store every date/time as a UTC datetime to the millisecond.)
 
-  // ISO 8601 — valid for equality, $in, and range operators:
-  created: "2023-01-01T00:00:00Z"
-  created: { $in: ["2023-01-01T00:00:00Z", "2023-02-01T00:00:00Z"] }
-  created: { $gte: "2023-01-01T00:00:00Z" }
-  Relative ("last 7 days", "this month"): compute ISO UTC boundary → use ISO string with $gte/$lte.
+  An ISO 8601 operand is read as the type of the property it is compared with, so write the
+  operand in the property's own form. Valid for equality, $in/$nin, $ne and $gt/$gte/$lt/$lte:
+    created: "2023-01-01T00:00:00Z"                          // datetime: same instant matches any offset
+    created: { $gte: "2023-01-01T00:00:00Z", $lt: "2023-02-01T00:00:00Z" }
+    created: { $gte: "2023-01-01" }                          // datetime vs date → midnight UTC that day
+    day:     { $gte: "2023-01-01", $lt: "2023-02-01" }       // date property
+    opensAt: { $lt: "09:00" }                                // localtime property
+    lasts:   { $gt: "PT25H" }                                // duration: length, a month counted as 30 days
+  Relative ("last 7 days", "this month"): compute the boundary, then use an ISO string with $gte/$lt.
+  A date never equals a localdatetime; datetimes compare by instant whatever their offsets.
 
-  // Component matching (exact point in time):
+  // Component matching (datetime read in UTC, local values as they are):
   created: { $year: 2023, $month: 1, $day: 1 }
   // Available components: $year $month $day $hour $minute $second $millisecond $microsecond $nanosecond
+  // ($nanosecond is always a multiple of 1000: values are kept to the microsecond). A date has no
+  // time components and a localtime no date components; asking for one matches nothing.
 
-  // Calendar-semantic ranges — component objects are clearest:
+  // Calendar-semantic ranges — component objects work wherever an ISO string does:
   Year   "in 1994":    { field: { $gte: { $year:1994 }, $lt: { $year:1995 } } }
   Month  "Jan 1994":   { field: { $gte: { $year:1994,$month:1 }, $lt: { $year:1994,$month:2 } } }
   Day    "1994-03-15": { field: { $gte: { $year:1994,$month:3,$day:15 }, $lt: { $year:1994,$month:3,$day:16 } } }
@@ -118,10 +134,25 @@ Direct equality, all types:
 
   // Month+day WITHOUT year: unsupported — ask the user for a year. Do not mention internal reasons.
 
+── POINTS & SPATIAL ($within, $distance) ────────────────────────────
+  A point property holds GeoJSON points, LONGITUDE FIRST: { type:"Point", coordinates:[13.405, 52.52] }
+  (WGS-84; [lon, lat, height] in 3D; crs:"cartesian" for a plane). RushDB 3.0.14+.
+  Within a radius (WGS-84: great-circle meters; cartesian: plane units):
+    location: { $within: { center: { type:"Point", coordinates:[13.405, 52.52] }, meters: 2000 } }
+  Within a box (south-west corner, then north-east; edges included; may cross the antimeridian):
+    location: { $within: { box: [ { type:"Point", coordinates:[13.3, 52.45] },
+                                  { type:"Point", coordinates:[13.5, 52.55] } ] } }
+  Nearest first: orderBy: { location: { $distance: { type:"Point", coordinates:[13.405, 52.52] } } }
+    with limit for "the N nearest"; combine with $within to rank only a region. Records without a
+    point (or with another CRS) sort last.
+  Points have no order: never $gt/$lt or orderBy asc/desc on a point. $within takes only center+meters
+  or box. Equality compares CRS and coordinates.
+
 ── FIELD EXISTENCE & TYPE ───────────────────────────────────────────
   phoneNumber: { $exists: true }    // only records that have this field (not null/empty)
   phoneNumber: { $exists: false }   // only records that do NOT have this field
-  age: { $type: "number" }          // "string"|"number"|"boolean"|"datetime"
+  age: { $type: "number" }          // "string"|"number"|"boolean"|"datetime"|"date"|"localdatetime"|"localtime"|"duration"|"point"
+  tags: { $type: "string[]" }       // array of that type; also "array", "object", "null"
 
 ── LOGICAL GROUPING OPERATORS ───────────────────────────────────────
   // Implicit $and (multiple keys at same level = AND):
@@ -306,8 +337,8 @@ EXPRESSION TYPES:
   { $sum: expr }            — sum of an expression
   { $avg: expr }            — average; add $precision:N to round
   { $count: "*" | expr }    — count DISTINCT records or field values
-  { $min: expr }            — minimum value
-  { $max: expr }            — maximum value
+  { $min: expr }            — minimum value (dates/times/durations: an ISO string in the field's own type)
+  { $max: expr }            — maximum value (same)
   { $divide: [A, B] }       — A / B
   { $multiply: [A, B] }     — A * B
   { $add: [A, B] }          — A + B
@@ -382,6 +413,14 @@ TIMEBUCKET:
     count:  { $count: "*" }
   },
   groupBy: ["bucket"]
+  field: a datetime, localdatetime or date property. unit: second|minute|hour|day|week|month|quarter|year
+  (size: N for fixed-width units second..week). One $timeBucket per query.
+  The bucket value is the bucket's start as an ISO string in the field's type: datetime → UTC
+  "2024-05-01T00:00:00Z", localdatetime → "2024-05-01T00:00:00", date → "2024-05-01".
+  Records without the field (and localtime fields) land in "__missing__".
+  $min/$max over dates and times also return ISO strings in the field's type ("2024-05-01T09:30:00+02:00",
+  "P1DT2H"), not epoch numbers. $sum/$avg over datetimes still add epoch milliseconds.
+  (Servers before RushDB 3.0.14 return $min/$max/$timeBucket over datetimes as epoch milliseconds.)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 §3) GROUPBY — TWO MODES
@@ -488,7 +527,8 @@ Related-count ranking:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 §7) RANGE / DISTRIBUTION QUERIES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  • type = number or datetime → findRecords with select:{ min:{ $min:'$record.<field>' }, max:{ $max:'$record.<field>' } }
+  • type = number or a date/time type (datetime/date/localdatetime/localtime/duration)
+    → findRecords with select:{ min:{ $min:'$record.<field>' }, max:{ $max:'$record.<field>' } }
     plus groupBy:['min','max']. Or: getSchema (JSON) → propertyValues(propertyId) → returns { min, max } directly.
   • type = string or boolean → propertyValues(propertyId) to list all distinct values.
   • NEVER call findRecords with a where filter to "search for" values of a field — that returns records, not ranges.
@@ -510,6 +550,18 @@ Never hardcode guessed values for enumerated fields:
   5) Re-run propertyValues with empty query to list top candidates; retry once silently.
      Ask only if two+ equally plausible values remain.
   6) Always mention assumption briefly if mapping is non-obvious, then proceed.
+
+CATALOG WARNINGS (RushDB 3.0.14+): findRecords and propertyValues check the query against the data.
+  When a label, property, or compared text (equality, $eq, $ne, $in, $nin) is held by no record,
+  the result carries warnings: [{ kind, labels?, property?, value?, suggestions? }]:
+    unknownLabel     no record has this label          → suggestions: labels spelled alike
+    unknownProperty  no record of labels has property  → suggestions: properties spelled alike
+    unknownValue     no record stores this text there  → suggestions: the stored spelling (reason spelling,
+                     case ignored), other properties storing it (storedIn), values containing it (contains)
+  The query still ran. Treat warnings as the answer to an empty result: re-run once with the suggested
+  stored spelling / label / property (say so briefly), instead of reporting "no records".
+  check:'strict' refuses such a query before it runs (use it before bulkDeleteRecords with $ne/$nin/$not,
+  where a misspelled value matches everything). Numbers, dates and texts over 96 bytes are not checked.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 §10) RELATIONSHIP & PATH QUERIES
@@ -574,7 +626,8 @@ bounded one-hop queries from each flagged record.
 • Numbers:  > $gt   >= $gte   < $lt   <= $lte   between X and Y → { $gte:X, $lte:Y }
 • Strings (case-insensitive): $contains / $startsWith / $endsWith / $in / $nin / $ne.
 • Booleans: field: true|false or { field: { $ne: value } }.
-• Datetime — always component objects for ranges; see §1 datetime operators above.
+• Dates/times — ISO string in the property's own type (or a component object) with $gte/$lt; see §1.
+• Places — "near X", "within 5 km" → $within { center, meters }; "nearest" → orderBy { field:{ $distance } } + limit.
 • Logical: $and / $or / $not / $nor / $xor. Prefer implicit AND when simple.
 • "any ancestor/descendant", "reporting chain", "within N hops/degrees/steps"
     → $relation: { type?, direction, hops:{ max:N } } on ONE traversal block
@@ -588,6 +641,7 @@ bounded one-hop queries from each flagged record.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Before submitting a findRecords call, verify:
 □ No groupBy without select.
+□ Date/time operands written in the property's own type; points only with $within / $distance.
 □ limit absent for self-group and dimensional groupBy (unless scoping root records in flat select).
 □ orderBy on select key present for self-group queries (triggers late ordering → correct totals).
 □ groupBy mode correct:

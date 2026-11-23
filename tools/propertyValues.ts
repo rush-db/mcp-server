@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { db } from '../util/db.js'
+import { readCatalogWarnings } from '../util/catalog.js'
 
 export async function propertyValues(params: {
   propertyId: string
@@ -35,5 +36,7 @@ export async function propertyValues(params: {
 
   const result = await db.properties.values(propertyId, searchQuery)
 
-  return result.data
+  // Catalog warnings ride on the result or, in some SDK shapes, on its data.
+  const warnings = readCatalogWarnings(result)
+  return { data: result.data, warnings: warnings.length ? warnings : readCatalogWarnings(result.data) }
 }

@@ -60,7 +60,7 @@ Place this in:
 - **Cursor** — MCP settings in the Cursor config panel
 - **Windsurf** — `~/.codeium/windsurf/mcp_config.json`
 
-**3. That's it.** The agent now has 43 tools for storing, querying, searching and traversing structured memory.
+**3. That's it.** The agent now has 56 tools for storing, querying, searching and traversing structured memory.
 
 > `RUSHDB_API_URL` is optional and defaults to `https://api.rushdb.com/api/v1`, the RushDB Cloud API.
 
@@ -129,7 +129,7 @@ The agent calls `findRelationships` and `findRecords` with relationship filters 
 
 ## Available tools
 
-52 tools, named exactly as below. In direct mode the twelve RushDB Cloud tools are not listed. The full reference, with
+56 tools, named exactly as below. In direct mode the twelve RushDB Cloud tools are not listed. The full reference, with
 inputs and safety levels, is at [docs.rushdb.com/3.x/learn/reference/mcp/tools](https://docs.rushdb.com/3.x/learn/reference/mcp/tools).
 
 ### Discovery and properties
@@ -154,7 +154,7 @@ inputs and safety levels, is at [docs.rushdb.com/3.x/learn/reference/mcp/tools](
 
 | Tool | What it does |
 | --- | --- |
-| `findRecords` | Search records; ordering, projections, grouping and aggregations |
+| `findRecords` | Search records; ordering (incl. nearest first by `$distance`), projections, grouping and aggregations. On RushDB 3.0.14+ the result carries `warnings` when the query names a label, property or text no record holds, with the stored spelling; `check: "strict"` refuses such a query instead |
 | `findOneRecord` | The first matching record |
 | `findUniqRecord` | Exactly one matching record; fails on zero or several |
 | `getRecord` | One record by ID |
@@ -163,8 +163,8 @@ inputs and safety levels, is at [docs.rushdb.com/3.x/learn/reference/mcp/tools](
 | `updateRecord` | Update some fields of a record |
 | `setRecord` | Replace all fields of a record |
 | `deleteRecord` / `deleteRecordById` | Delete one record by ID |
-| `bulkCreateRecords` | Insert or upsert many records with one label |
-| `bulkDeleteRecords` | Delete the records matching a query |
+| `bulkCreateRecords` | Insert or upsert many records with one label, sent in batches of 5,000 flat rows (10,000 nested documents). Batches are not atomic without a `transactionId`; a failure names which batches committed and which did not |
+| `bulkDeleteRecords` | Delete the records matching a query; `check: "strict"` refuses a filter naming something no record holds (RushDB 3.0.14+) |
 | `exportRecords` | Export matching records as CSV |
 
 ### Relationships
@@ -173,7 +173,7 @@ inputs and safety levels, is at [docs.rushdb.com/3.x/learn/reference/mcp/tools](
 | --- | --- |
 | `findRelationships` | Find relationships by type, properties or endpoint records |
 | `attachRelation` | Create relationships between existing records |
-| `updateRelation` | Change or remove properties on existing relationships; `types` stores an ISO string as a datetime (RushDB 3.0.4+) |
+| `updateRelation` | Change or remove properties on existing relationships; `types` stores an ISO string as a datetime (RushDB 3.0.4+), or as a date, localdatetime, localtime, duration or point (3.0.14+) |
 | `detachRelation` | Remove relationships: every type unless `relationType` is given, both ways unless `direction` is |
 
 ### Vector, keyword and hybrid search
@@ -191,6 +191,14 @@ inputs and safety levels, is at [docs.rushdb.com/3.x/learn/reference/mcp/tools](
 | `createTextIndex` | Declare a BM25 text index over one property, or `*` for every string |
 | `deleteTextIndex` | Drop a text index |
 | `textSearch` | Keyword (BM25) search after exact filtering |
+
+### Property indexes (RushDB 3.0.14+)
+
+| Tool | What it does |
+| --- | --- |
+| `listIndexes` | List ordered and unique property indexes and their status |
+| `createIndex` | Declare an ordered index on a property (faster filters, sorting and `$within`); `unique: true` allows one record of the label per value, and a conflicting write fails with a 409 naming the record that holds the value |
+| `deleteIndex` | Drop an ordered or unique index |
 
 ### RushDB Cloud only
 

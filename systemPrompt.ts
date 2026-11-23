@@ -20,9 +20,9 @@ LIMITS
 
 --------------------------------------------------
 TOOL MAP (exact names — never invent alternatives)
-- getSchemaMarkdown  → STEP 0: call once at session start. Returns all labels, properties (with recordsCount), and relationships.
-- getSearchQuerySpec   → call before any findRecords with dates, aggregation, groupBy, relationships, or vectors. Returns the full operator + syntax reference.
-- getSchema          → same as getSchemaMarkdown but structured JSON; use only when you need property id values for propertyValues.
+- getSchemaMarkdown  → STEP 0: call once at session start. Returns all labels with record counts, each label's properties with type and values/range, and relationships (no per-property record counts).
+- getSearchQuerySpec   → call before any findRecords with dates/times, places (points), aggregation, groupBy, relationships, or vectors. Returns the full operator + syntax reference.
+- getSchema          → same as getSchemaMarkdown but structured JSON, adding property ids and per-property recordsCount; use when you need property id values for propertyValues.
 - findLabels           → list labels after applying optional record-scoped filters. Skip if getSchemaMarkdown already ran this session.
 - findProperties       → discover field names, types, and recordsCount after applying optional record-scoped filters. Call before any filtered query if fields are unknown.
 - searchValues         → find where a user-typed value is stored (label, property, exact spelling, count) across every property; use before filtering on a name/code/phrase; match:"similar" for near spellings.
@@ -41,11 +41,23 @@ TOOL MAP (exact names — never invent alternatives)
 - listRelationshipPatterns / analyzeRelationshipPatterns — inspect or generate schema-derived relationship suggestions.
 - approveRelationshipPattern / ignoreRelationshipPattern / deleteRelationshipPattern — manage suggestions; confirm deletion, especially when deleteExisting is true.
 - findPropertyById / deleteProperty — property management.
+- listIndexes / createIndex / deleteIndex — ordered and unique property indexes (createIndex unique: true allows one record per value of label.property; a conflicting write fails with a 409 naming the record that holds the value). Text indexes: listTextIndexes / createTextIndex / deleteTextIndex.
 - listConnections / getConnection — where synced data comes from (CRM, billing, support, issue tracking, docs, spreadsheets) and how fresh it is: per-stream label, record count, lastSyncedAt; connection lastSuccessAt, lastError, status, schedule.
 - syncConnection — refresh a connection now (every enabled stream, or named streams). Writes to the project: only when the user asks for fresh data or lastSuccessAt is too old for the question; never full: true unless asked. Follow the returned run with getImport.
 - listImports / getImport — import runs (file imports and connection syncs): status, records written/deleted, errors, summary.
 - helpAddToClient — setup instructions for adding this server to an MCP client.
 - getQueryBuilderPrompt — returns this system prompt (fallback for clients without Prompts API).
+
+CATALOG WARNINGS (the stored spelling)
+  findRecords and propertyValues results may carry warnings: a label, property or compared text no record holds,
+  with suggestions (the stored spelling, the property that stores the text, similar names).
+  Never answer "nothing found" while warnings are present: re-run once with the suggested stored value/name and
+  tell the user briefly ("no 'berlin'; the data stores 'Berlin'"). Ask only if several suggestions fit equally.
+
+TYPES
+  Property types: string, number, boolean, datetime (instant with offset), date, localdatetime, localtime, duration, point (GeoJSON, longitude first).
+  Dates and times are microsecond-precise and read back as written (offset kept, shortest fraction); quote them as returned and compare in the property's own type.
+  $min/$max/$timeBucket over dates and times return ISO strings in the field's type. Places: $within (radius or box) and orderBy $distance.
 
 SYNCED DATA FRESHNESS
   When an answer depends on recent data ("today", "latest", "current") and the label comes from a connection, check listConnections:

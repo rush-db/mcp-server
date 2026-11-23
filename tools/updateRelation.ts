@@ -14,6 +14,18 @@
 
 import { db } from '../util/db.js'
 
+// date, localdatetime, localtime, duration and point need RushDB 3.0.14 or later.
+export type RelationPropertyType =
+  | 'string'
+  | 'number'
+  | 'boolean'
+  | 'datetime'
+  | 'date'
+  | 'localdatetime'
+  | 'localtime'
+  | 'duration'
+  | 'point'
+
 export async function updateRelation(params: {
   sourceId: string
   targetId?: string
@@ -22,7 +34,7 @@ export async function updateRelation(params: {
   direction?: 'outgoing' | 'incoming'
   set?: Record<string, unknown>
   unset?: string[]
-  types?: Record<string, 'string' | 'number' | 'boolean' | 'datetime'>
+  types?: Record<string, RelationPropertyType>
 }) {
   const { sourceId, targetId, targetIds, relationType, direction = 'outgoing', set, unset, types } = params
 

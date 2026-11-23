@@ -13,11 +13,13 @@
 // limitations under the License.
 
 import { db } from '../util/db.js'
+import type { CatalogCheckMode } from '../util/catalog.js'
 
 type BulkDeleteRecordsArgs = {
   labels?: string[]
   where: Record<string, any>
   transactionId?: string
+  check?: CatalogCheckMode
 }
 
 type BulkDeleteRecordsResult = {
@@ -27,12 +29,14 @@ type BulkDeleteRecordsResult = {
 export async function bulkDeleteRecords({
   labels,
   where,
-  transactionId
+  transactionId,
+  check
 }: BulkDeleteRecordsArgs): Promise<BulkDeleteRecordsResult> {
   const searchQuery: any = { where }
   if (labels && labels.length > 0) {
     searchQuery.labels = labels
   }
+  if (check) searchQuery.context = { check }
 
   const result = await db.records.delete(searchQuery, transactionId)
 

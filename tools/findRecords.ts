@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { db } from '../util/db.js'
+import { readCatalogWarnings, type CatalogCheckMode } from '../util/catalog.js'
 
 export async function findRecords(params: {
   labels?: string[]
@@ -23,8 +24,9 @@ export async function findRecords(params: {
   select?: Record<string, any>
   aggregate?: Record<string, { fn: string; field?: string; alias?: string; where?: any }>
   groupBy?: string[]
+  check?: CatalogCheckMode
 }) {
-  const { labels, where, limit, skip, orderBy, select, aggregate, groupBy } = params
+  const { labels, where, limit, skip, orderBy, select, aggregate, groupBy, check } = params
 
   const searchQuery: any = {}
   if (labels && labels.length > 0) searchQuery.labels = labels
@@ -35,11 +37,16 @@ export async function findRecords(params: {
   if (select && Object.keys(select).length > 0) searchQuery.select = select
   if (aggregate && Object.keys(aggregate).length > 0) searchQuery.aggregate = aggregate
   if (groupBy && groupBy.length > 0) searchQuery.groupBy = groupBy
+  // Sent only when asked: servers before 3.0.14 know no catalog check.
+  if (check) searchQuery.context = { check }
 
   const result = await db.records.find(searchQuery)
 
+  const warnings = readCatalogWarnings(result)
+
   return {
     data: result.data.map((record: any) => record.data),
-    total: result.total
+    total: result.total,
+    ...(warnings.length ? { warnings } : {})
   }
 }
